@@ -24,8 +24,9 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
 }) => {
   if (!isOpen) return null;
 
+  // O azul padrão das palestras solicitado é o #1A4373, que é a cor 'primary' do sistema
   const confirmBtnClasses = variant === 'palestra'
-    ? "bg-sky-500 shadow-sky-500/30 hover:bg-sky-600"
+    ? "bg-primary shadow-primary/30 hover:bg-primary-dark"
     : "bg-primary shadow-primary/30 hover:bg-primary-dark";
 
   return (
@@ -54,7 +55,7 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
             </h3>
             
             {message && (
-              <p className="text-xs text-gray-500 dark:text-gray-400 mb-6 leading-relaxed px-1">
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-6 leading-relaxed px-1 font-bold">
                 {message}
               </p>
             )}
