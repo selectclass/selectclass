@@ -256,7 +256,7 @@ export const EventList: React.FC<EventListProps> = ({
                             placeholder="Adicionar custo..." 
                             value={quickMaterialName[evt.id] || ''}
                             onChange={(e) => setQuickMaterialName({ ...quickMaterialName, [evt.id]: e.target.value })}
-                            className="flex-1 text-[10px] bg-white dark:bg-bg-dark border border-gray-200 dark:border-gray-700 rounded px-2 py-1.5 outline-none text-gray-800 dark:text-white"
+                            className="flex-1 text-[10px] bg-white dark:bg-bg-dark border border-gray-200 dark:border-gray-700 rounded px-2 py-1.5 outline-none text-gray-800 dark:text-white font-bold"
                           />
                           <input 
                             type="text" 
@@ -366,7 +366,7 @@ export const EventList: React.FC<EventListProps> = ({
                       href={waLink} 
                       target="_blank" 
                       rel="noopener noreferrer" 
-                      className="flex-1 py-3 flex items-center justify-center text-sky-500 active:bg-emerald-500 active:text-white transition-all" 
+                      className="flex-1 py-3 flex items-center justify-center text-gray-400 active:text-[#25D366] transition-all" 
                       title="WhatsApp"
                     >
                       <WhatsAppIcon className="w-5 h-5" />
