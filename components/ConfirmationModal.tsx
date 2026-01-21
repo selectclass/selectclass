@@ -24,9 +24,9 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
 }) => {
   if (!isOpen) return null;
 
-  // O azul padrão das palestras solicitado é o #1A4373, que é a cor 'primary' do sistema
+  // Define as classes de cor do botão de confirmação baseadas no contexto (Curso ou Palestra)
   const confirmBtnClasses = variant === 'palestra'
-    ? "bg-primary shadow-primary/30 hover:bg-primary-dark"
+    ? "bg-sky-500 shadow-sky-500/30 hover:bg-sky-600"
     : "bg-primary shadow-primary/30 hover:bg-primary-dark";
 
   return (
