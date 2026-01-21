@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { AppView, CalendarEvent, CourseType, Student, Expense, MaterialItem, LectureModel } from './types';
 import { Drawer } from './components/Drawer';
 import { Calendar } from './components/Calendar';
@@ -35,16 +35,16 @@ const parseCurrency = (value: any): number => {
   return parseFloat(cleanValue) || 0;
 };
 
-// Componente de Splash Screen Azul Refinado
+// Componente de Splash Screen Azul Oficial
 const SplashScreen = () => (
   <div className="fixed inset-0 z-[200] bg-[#1A4373] flex flex-col items-center justify-center p-6 animate-fade-in">
     <div className="flex flex-col items-center">
-      <img src="https://i.postimg.cc/gJ2C9FMT/icon.png" alt="Logo" className="h-24 w-auto mb-6 brightness-0 invert" />
-      <h2 className="text-white text-3xl font-black uppercase tracking-tighter mb-8">SelectClass</h2>
+      <img src="https://i.postimg.cc/gJ2C9FMT/icon.png" alt="Logo" className="h-20 w-auto mb-8 brightness-0 invert opacity-90" />
       
-      <div className="w-12 h-12 border-4 border-white/20 border-t-white rounded-full animate-spin mb-8"></div>
+      {/* Bolinha Girando Branco */}
+      <div className="w-10 h-10 border-4 border-white/20 border-t-white rounded-full animate-spin mb-10"></div>
       
-      <p className="text-white text-xs font-bold uppercase tracking-widest text-center">
+      <p className="text-white text-[11px] font-black uppercase tracking-[0.2em] text-center">
         Preparando seus dados...
       </p>
     </div>
@@ -56,7 +56,6 @@ function App() {
   const [isInitialLoading, setIsInitialLoading] = useState(false);
   const [loginError, setLoginError] = useState(false);
   
-  // Estado de credenciais inicializado com o padrão ou cache local
   const [credentials, setCredentials] = useState(() => {
      const saved = localStorage.getItem('auth_credentials');
      return saved ? JSON.parse(saved) : DEFAULT_CREDENTIALS;
@@ -94,7 +93,6 @@ function App() {
     }
   };
 
-  // Busca inicial de configurações (inclusive credenciais) antes ou durante o login
   useEffect(() => {
     const fetchConfig = async () => {
         const remoteCreds = await api.get('v1/config/credentials');
@@ -289,6 +287,13 @@ function App() {
      setDeleteData({ isOpen: false, eventId: null });
   };
 
+  const isDeletingPalestra = useMemo(() => {
+    if (!deleteData.eventId) return false;
+    const ev = allEvents.find(e => e.id === deleteData.eventId);
+    if (!ev) return false;
+    return (ev.title === 'Palestra' || ev.title === 'Workshop' || lectureModels.some(m => m.name === ev.title));
+  }, [deleteData.eventId, allEvents, lectureModels]);
+
   const renderContent = () => {
     switch (currentView) {
       case AppView.HOME:
@@ -398,7 +403,7 @@ function App() {
       )}
       <AddEventModal isOpen={isAddEventOpen} onClose={() => { setIsAddEventOpen(false); setEditingEvent(null); }} onSave={handleSaveEvent} courseTypes={courseTypes} initialDate={selectedDate} initialEvent={editingEvent} forcedModel={preSelectedModel} lectureModels={lectureModels.map(m => m.name)} allEvents={allEvents} />
       <PaymentModal isOpen={isPaymentModalOpen} onClose={() => setIsPaymentModalOpen(false)} event={selectedEventForPayment} onConfirmPayment={async (a,d,m) => { if(!selectedEventForPayment) return; const currentPs = selectedEventForPayment.payments || []; const newP = { id: Math.random().toString(), amount: a, date: d, method: m }; const isLec = (selectedEventForPayment.title === 'Palestra' || selectedEventForPayment.title === 'Workshop' || lectureModels.some(m => m.name === selectedEventForPayment.title)); const path = (isLec ? 'palestras_v1' : 'v1/appointments'); const updatedEv: CalendarEvent = { ...selectedEventForPayment, payments: [...currentPs, newP], paymentStatus: (currentPs.reduce((s,p)=>s+p.amount,0) + a) >= (selectedEventForPayment.value || 0) ? 'paid' : 'pending' }; await api.put(path + '/' + updatedEv.id, updatedEv); refreshData(); }} />
-      <ConfirmationModal isOpen={deleteData.isOpen} onClose={() => setDeleteData({isOpen: false, eventId: null})} onConfirm={executeDelete} title="Excluir Agendamento" message="" />
+      <ConfirmationModal isOpen={deleteData.isOpen} onClose={() => setDeleteData({isOpen: false, eventId: null})} onConfirm={executeDelete} title="Excluir Agendamento" message="" variant={isDeletingPalestra ? 'palestra' : 'default'} />
       <ShareModal isOpen={shareData.isOpen} onClose={() => setShareData({ isOpen: false, event: null })} event={shareData.event} />
     </div>
   );
