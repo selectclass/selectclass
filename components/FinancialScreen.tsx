@@ -1,5 +1,6 @@
+
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { CalendarEvent, Expense, CourseType } from '../types';
+import { CalendarEvent, Expense, CourseType, LectureModel } from '../types';
 import { PencilIcon, DollarSignIcon, TrendingDownIcon, BarChartIcon } from './Icons';
 
 interface FinancialScreenProps {
@@ -8,6 +9,7 @@ interface FinancialScreenProps {
   onUpdateGoal: (goal: number) => void;
   expenses: Expense[];
   courseTypes: CourseType[];
+  lectureModels: LectureModel[];
 }
 
 const parseCurrency = (value: any): number => {
@@ -17,13 +19,12 @@ const parseCurrency = (value: any): number => {
   return parseFloat(cleanValue) || 0;
 };
 
-export const FinancialScreen: React.FC<FinancialScreenProps> = ({ events, annualGoal, onUpdateGoal, expenses, courseTypes }) => {
+export const FinancialScreen: React.FC<FinancialScreenProps> = ({ events, annualGoal, onUpdateGoal, expenses, courseTypes, lectureModels }) => {
   const now = new Date();
   
   const [selectedDay, setSelectedDay] = useState<number | 'all'>('all');
   const [selectedYear, setSelectedYear] = useState(now.getFullYear());
-  const [selectedMonth, setSelectedMonth] = useState(now.getMonth());
-  const [touchedMonth, setTouchedMonth] = useState<number | null>(null);
+  const [selectedMonth, setSelectedMonth] = useState<number | 'all'>(now.getMonth());
   const [filterType, setFilterType] = useState<'cursos' | 'palestras'>('cursos');
 
   const [isEditingGoal, setIsEditingGoal] = useState(false);
@@ -41,20 +42,32 @@ export const FinancialScreen: React.FC<FinancialScreenProps> = ({ events, annual
   const monthNames = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
   const monthShortNames = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
 
+  // Helper unificado para verificar se é palestra
+  const checkIfPalestra = (event: CalendarEvent) => {
+    const config = courseTypes.find(c => c.name === event.title);
+    return config?.model === 'Palestra' || 
+           event.title === 'Palestra' || 
+           event.title === 'Workshop' ||
+           lectureModels.some(m => m.name === event.title);
+  };
+
   const currentPeriodMetrics = useMemo(() => {
     const filtered = events.filter(e => {
         if (!e.date) return false; 
         const eDate = new Date(e.date);
         const matchYear = eDate.getFullYear() === selectedYear;
-        const matchMonth = eDate.getMonth() === selectedMonth;
+        const matchMonth = selectedMonth === 'all' || eDate.getMonth() === selectedMonth;
         const matchDay = selectedDay === 'all' || eDate.getDate() === Number(selectedDay);
-        const config = courseTypes.find(c => c.name === e.title);
-        const matchType = filterType === 'palestras' ? config?.model === 'Palestra' : config?.model !== 'Palestra';
+        
+        const isPal = checkIfPalestra(e);
+        const matchType = filterType === 'palestras' ? isPal : !isPal;
+        
         return matchYear && matchMonth && matchDay && matchType;
     });
 
     const gross = filtered.reduce((acc, curr) => {
         const paymentsSum = curr.payments?.reduce((pAcc, p) => pAcc + parseCurrency(p.amount), 0) || 0;
+        // Se estiver quitado mas sem registros de pagamento (caso legado), usa o valor total
         if (curr.paymentStatus === 'paid' && paymentsSum === 0) return acc + parseCurrency(curr.value);
         return acc + paymentsSum;
     }, 0);
@@ -65,7 +78,7 @@ export const FinancialScreen: React.FC<FinancialScreenProps> = ({ events, annual
     }, 0);
 
     return { gross, net: gross - materialsCost, expenses: materialsCost };
-  }, [events, expenses, selectedYear, selectedMonth, selectedDay, filterType, courseTypes]);
+  }, [events, selectedYear, selectedMonth, selectedDay, filterType, courseTypes, lectureModels]);
 
   const annualChartData = useMemo(() => {
       const data = Array(12).fill(0).map(() => ({ gross: 0, net: 0 }));
@@ -73,9 +86,11 @@ export const FinancialScreen: React.FC<FinancialScreenProps> = ({ events, annual
           if (!e.date) return;
           const d = new Date(e.date);
           if (d.getFullYear() !== selectedYear) return;
-          const config = courseTypes.find(c => c.name === e.title);
-          const matchType = filterType === 'palestras' ? config?.model === 'Palestra' : config?.model !== 'Palestra';
+          
+          const isPal = checkIfPalestra(e);
+          const matchType = filterType === 'palestras' ? isPal : !isPal;
           if (!matchType) return;
+
           const mIndex = d.getMonth();
           const paymentsSum = e.payments?.reduce((pAcc, p) => pAcc + parseCurrency(p.amount), 0) || 0;
           const val = (e.paymentStatus === 'paid' && paymentsSum === 0) ? parseCurrency(e.value) : paymentsSum;
@@ -85,10 +100,23 @@ export const FinancialScreen: React.FC<FinancialScreenProps> = ({ events, annual
       });
       for(let i=0; i<12; i++) data[i].net += data[i].gross;
       return data;
-  }, [events, expenses, selectedYear, filterType, courseTypes]);
+  }, [events, selectedYear, filterType, courseTypes, lectureModels]);
 
   const maxChartValue = Math.max(...annualChartData.map(d => d.gross), 100);
-  const totalAnnualPaid = useMemo(() => annualChartData.reduce((acc, curr) => acc + curr.gross, 0), [annualChartData]);
+
+  // META ANUAL ACUMULADA: Soma AMBOS (Cursos + Palestras) independente do filtro
+  const totalAnnualPaid = useMemo(() => {
+    return events.reduce((acc, e) => {
+      if (!e.date) return acc;
+      const d = new Date(e.date);
+      if (d.getFullYear() !== selectedYear) return acc;
+      
+      const paymentsSum = e.payments?.reduce((pAcc, p) => pAcc + parseCurrency(p.amount), 0) || 0;
+      const val = (e.paymentStatus === 'paid' && paymentsSum === 0) ? parseCurrency(e.value) : paymentsSum;
+      return acc + val;
+    }, 0);
+  }, [events, selectedYear]);
+
   const progressPercentage = annualGoal > 0 ? Math.min((totalAnnualPaid / annualGoal) * 100, 100) : 0;
 
   const handleSaveGoal = () => {
@@ -112,22 +140,38 @@ export const FinancialScreen: React.FC<FinancialScreenProps> = ({ events, annual
       <div className="flex gap-3 mb-6">
          <div className="w-24 relative flex flex-col">
             <label className="text-[9px] font-black text-gray-400 uppercase mb-1 ml-1">Dia</label>
-            <select value={selectedDay} onChange={(e) => setSelectedDay(e.target.value === 'all' ? 'all' : Number(e.target.value))} className="w-full px-4 py-3 rounded-xl bg-white dark:bg-surface-dark border border-gray-100 dark:border-gray-800 text-sm font-bold text-gray-700 dark:text-white focus:ring-2 focus:ring-primary outline-none appearance-none shadow-sm transition-all">
-                <option value="all">Todos</option>
-                {days.map(d => <option key={d} value={d}>{d}</option>)}
-            </select>
+            <div className="relative">
+                <select value={selectedDay} onChange={(e) => setSelectedDay(e.target.value === 'all' ? 'all' : Number(e.target.value))} className="w-full px-4 py-3 rounded-xl bg-white dark:bg-surface-dark border border-gray-100 dark:border-gray-800 text-sm font-bold text-gray-700 dark:text-white focus:ring-2 focus:ring-primary outline-none appearance-none shadow-sm transition-all">
+                    <option value="all">Todos</option>
+                    {days.map(d => <option key={d} value={d}>{d}</option>)}
+                </select>
+                <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
+                    <svg className="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+                </div>
+            </div>
          </div>
          <div className="flex-1 relative flex flex-col">
             <label className="text-[9px] font-black text-gray-400 uppercase mb-1 ml-1">Mês</label>
-            <select value={selectedMonth} onChange={(e) => setSelectedMonth(Number(e.target.value))} className="w-full px-4 py-3 rounded-xl bg-white dark:bg-surface-dark border border-gray-100 dark:border-gray-800 text-sm font-bold text-gray-700 dark:text-white focus:ring-2 focus:ring-primary outline-none appearance-none shadow-sm transition-all">
-                {monthNames.map((m, i) => <option key={i} value={i}>{m}</option>)}
-            </select>
+            <div className="relative">
+                <select value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value === 'all' ? 'all' : Number(e.target.value))} className="w-full px-4 py-3 rounded-xl bg-white dark:bg-surface-dark border border-gray-100 dark:border-gray-800 text-sm font-bold text-gray-700 dark:text-white focus:ring-2 focus:ring-primary outline-none appearance-none shadow-sm transition-all">
+                    <option value="all">Todos</option>
+                    {monthNames.map((m, i) => <option key={i} value={i}>{m}</option>)}
+                </select>
+                <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
+                    <svg className="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+                </div>
+            </div>
          </div>
          <div className="w-24 relative flex flex-col">
             <label className="text-[9px] font-black text-gray-400 uppercase mb-1 ml-1 text-center">Ano</label>
-            <select value={selectedYear} onChange={(e) => setSelectedYear(Number(e.target.value))} className="w-full px-4 py-3 rounded-xl bg-white dark:bg-surface-dark border border-gray-100 dark:border-gray-800 text-sm font-bold text-gray-700 dark:text-white focus:ring-2 focus:ring-primary outline-none appearance-none shadow-sm transition-all text-center">
-                {years.map(y => <option key={y} value={y}>{y}</option>)}
-            </select>
+            <div className="relative">
+                <select value={selectedYear} onChange={(e) => setSelectedYear(Number(e.target.value))} className="w-full px-4 py-3 rounded-xl bg-white dark:bg-surface-dark border border-gray-100 dark:border-gray-800 text-sm font-bold text-gray-700 dark:text-white focus:ring-2 focus:ring-primary outline-none appearance-none shadow-sm transition-all text-center">
+                    {years.map(y => <option key={y} value={y}>{y}</option>)}
+                </select>
+                <div className="absolute right-2 top-1/2 transform -translate-y-1/2 pointer-events-none">
+                    <svg className="w-3 h-3 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+                </div>
+            </div>
          </div>
       </div>
 
