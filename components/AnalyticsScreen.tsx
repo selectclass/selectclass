@@ -14,7 +14,7 @@ export const AnalyticsScreen: React.FC<AnalyticsScreenProps> = ({ events, course
   
   // --- State Initialization ---
   const [selectedYear, setSelectedYear] = useState(now.getFullYear());
-  const [selectedMonth, setSelectedMonth] = useState(now.getMonth());
+  const [selectedMonth, setSelectedMonth] = useState<number | 'all'>('all');
   const [selectedCity, setSelectedCity] = useState('all');
   const [touchedMonth, setTouchedMonth] = useState<number | null>(null);
   const [filterType, setFilterType] = useState<'cursos' | 'palestras'>('cursos');
@@ -58,7 +58,7 @@ export const AnalyticsScreen: React.FC<AnalyticsScreenProps> = ({ events, course
         if (!e.date) return false;
         const d = new Date(e.date);
         
-        const matchesMonth = d.getMonth() === selectedMonth;
+        const matchesMonth = selectedMonth === 'all' || d.getMonth() === selectedMonth;
         const matchesYear = d.getFullYear() === selectedYear;
         const matchesCity = selectedCity === 'all' || e.city === selectedCity;
         
@@ -170,9 +170,10 @@ export const AnalyticsScreen: React.FC<AnalyticsScreenProps> = ({ events, course
              <div className="flex-1 relative">
                 <select 
                     value={selectedMonth}
-                    onChange={(e) => setSelectedMonth(Number(e.target.value))}
+                    onChange={(e) => setSelectedMonth(e.target.value === 'all' ? 'all' : Number(e.target.value))}
                     className="w-full px-3 sm:px-4 py-3 rounded-xl bg-white dark:bg-surface-dark border border-gray-100 dark:border-gray-800 text-sm font-bold text-gray-700 dark:text-white focus:ring-2 focus:ring-primary outline-none appearance-none shadow-sm transition-all"
                 >
+                    <option value="all">Mês</option>
                     {monthNames.map((m, i) => <option key={i} value={i}>{m}</option>)}
                 </select>
                 <div className="absolute right-3 top-1/2 transform -translate-y-1/2 pointer-events-none">
@@ -272,7 +273,7 @@ export const AnalyticsScreen: React.FC<AnalyticsScreenProps> = ({ events, course
                     </div>
                     <div>
                         <h3 className="font-bold text-lg text-gray-800 dark:text-white">{filterType === 'palestras' ? 'Palestras Mais Vendidas' : 'Cursos Mais Vendidos'}</h3>
-                        <p className="text-xs text-gray-400">Ranking de {monthNames[selectedMonth]}</p>
+                        <p className="text-xs text-gray-400">Ranking de {selectedMonth === 'all' ? `Ano ${selectedYear}` : monthNames[selectedMonth]}</p>
                     </div>
                 </div>
 
@@ -308,7 +309,7 @@ export const AnalyticsScreen: React.FC<AnalyticsScreenProps> = ({ events, course
                                                 ${idx === 0 ? 'bg-gradient-to-r from-yellow-400 to-yellow-600' : 
                                                   idx === 1 ? 'bg-gradient-to-r from-gray-300 to-gray-500' : 
                                                   idx === 2 ? 'bg-gradient-to-r from-orange-300 to-orange-500' : 
-                                                  (filterType === 'palestras' ? 'bg-[#1A4373]' : 'bg-[#1A4373]')
+                                                  (filterType === 'palestras' ? 'bg-sky-600' : 'bg-primary')
                                                 }`}
                                             style={{ width: `${percent}%` }}
                                         />
@@ -328,7 +329,7 @@ export const AnalyticsScreen: React.FC<AnalyticsScreenProps> = ({ events, course
                     </div>
                     <div>
                         <h3 className="font-bold text-lg text-gray-800 dark:text-white">Onde estão minhas alunas?</h3>
-                        <p className="text-xs text-gray-400">Ranking por Cidade em {monthNames[selectedMonth]}</p>
+                        <p className="text-xs text-gray-400">Ranking por Cidade em {selectedMonth === 'all' ? `Ano ${selectedYear}` : monthNames[selectedMonth]}</p>
                     </div>
                 </div>
 
