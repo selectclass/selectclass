@@ -280,7 +280,6 @@ function App() {
   const renderContent = () => {
     switch (currentView) {
       case AppView.HOME: {
-        // Lógica de filtro para o card de resumo
         const dashboardFilteredEvents = allEvents.filter(e => {
             if (!e.date) return false;
             const d = new Date(e.date);
@@ -298,20 +297,11 @@ function App() {
             return acc + pending;
         }, 0);
 
-        // Ajuste no cálculo do Líquido para refletir o lucro real (Faturamento - Gastos abatidos)
         const totalLiquid = dashboardFilteredEvents.reduce((acc, event) => {
             const isPal = (event.title === 'Palestra' || event.title === 'Workshop' || lectureModels.some(m => m.name === event.title));
             const courseValue = event.value || 0;
             const totalMaterialCost = (event.materials || []).filter(m => m.checked).reduce((s, m) => s + (parseCurrency(m.cost) || 0), 0);
-            
-            let eventNet = 0;
-            if (isPal) {
-                // Para palestras, só abate se 'abateExpenses' estiver marcado
-                eventNet = event.abateExpenses ? (courseValue - totalMaterialCost) : courseValue;
-            } else {
-                // Para cursos, sempre abate o custo de materiais do líquido projetado
-                eventNet = courseValue - totalMaterialCost;
-            }
+            const eventNet = isPal ? (event.abateExpenses ? (courseValue - totalMaterialCost) : courseValue) : (courseValue - totalMaterialCost);
             return acc + eventNet;
         }, 0);
 
@@ -332,28 +322,23 @@ function App() {
               selectedDate={selectedDate} 
               onSelectDate={(date) => {
                 setSelectedDate(date);
-                // Busca eventos neste dia específico para mudar a aba automaticamente
                 const eventsOnDay = allEvents.filter(e => {
                   if (!e.date) return false;
                   const eDate = new Date(e.date);
-                  const isMainDay = eDate.toDateString() === date.toDateString();
-                  if (isMainDay) return true;
-                  
-                  // Verifica se é o segundo dia de um evento de 2 dias
-                  if (e.duration && (e.duration.toLowerCase().includes('2 dia') || e.duration.toLowerCase().includes('2 day'))) {
-                    const secondDay = new Date(eDate);
-                    secondDay.setDate(eDate.getDate() + 1);
-                    return secondDay.toDateString() === date.toDateString();
+                  const dStr = String(e.duration || '').toLowerCase();
+                  let durationNum = 1;
+                  if (dStr.includes('dia')) {
+                    durationNum = parseInt(dStr) || 1;
+                  }
+                  for (let j = 0; j < durationNum; j++) {
+                    const currentRangeDay = new Date(eDate);
+                    currentRangeDay.setDate(eDate.getDate() + j);
+                    if (currentRangeDay.toDateString() === date.toDateString()) return true;
                   }
                   return false;
                 });
-
                 if (eventsOnDay.length > 0) {
-                  const hasPalestra = eventsOnDay.some(e => 
-                    e.title === 'Palestra' || 
-                    e.title === 'Workshop' || 
-                    lectureModels.some(m => m.name === e.title)
-                  );
+                  const hasPalestra = eventsOnDay.some(e => e.title === 'Palestra' || e.title === 'Workshop' || lectureModels.some(m => m.name === e.title));
                   setDashboardTab(hasPalestra ? 'palestras' : 'cursos');
                 }
               }} 
@@ -379,47 +364,40 @@ function App() {
                     </div>
                 </div>
             </div>
-            <UnifiedSearch 
-                searchTerm={searchTerm} 
-                onSearchChange={setSearchTerm} 
-                activeTab={dashboardTab} 
-                onTabChange={setDashboardTab} 
-                allEvents={allEvents} 
-                courseTypes={courseTypes} 
-                onResultClick={(e) => { 
-                    if(e.date) setSelectedDate(new Date(e.date)); 
-                    const isPal = (e.title === 'Palestra' || e.title === 'Workshop' || lectureModels.some(m => m.name === e.title));
-                    setDashboardTab(isPal ? 'palestras' : 'cursos');
-                    setSearchTerm(''); 
-                }} 
-            />
+            <UnifiedSearch searchTerm={searchTerm} onSearchChange={setSearchTerm} activeTab={dashboardTab} onTabChange={setDashboardTab} allEvents={allEvents} courseTypes={courseTypes} onResultClick={(e) => { if(e.date) setSelectedDate(new Date(e.date)); const isPal = (e.title === 'Palestra' || e.title === 'Workshop' || lectureModels.some(m => m.name === e.title)); setDashboardTab(isPal ? 'palestras' : 'cursos'); setSearchTerm(''); }} />
             <EventList 
               date={selectedDate} 
-              events={allEvents
-                .filter(e => {
-                  if (!e.date) return false;
-                  const d = new Date(e.date);
-                  const isSameMonth = d.getMonth() === dashboardDate.getMonth() && d.getFullYear() === dashboardDate.getFullYear();
-                  const isPal = (e.title === 'Palestra' || e.title === 'Workshop' || lectureModels.some(m => m.name === e.title));
-                  const matchesTab = dashboardTab === 'palestras' ? isPal : !isPal;
-                  return isSameMonth && matchesTab;
-                })
-                .sort((a, b) => {
-                  const da = a.date ? new Date(a.date).getTime() : 0;
-                  const db = b.date ? new Date(b.date).getTime() : 0;
-                  return da - db;
-                })
-              } 
+              events={allEvents.filter(e => { 
+                if (!e.date) return false; 
+                const eDate = new Date(e.date);
+                eDate.setHours(0,0,0,0);
+                const sDate = new Date(selectedDate);
+                sDate.setHours(0,0,0,0);
+
+                const dStr = String(e.duration || '').toLowerCase();
+                let durationNum = 1;
+                if (dStr.includes('dia')) {
+                  durationNum = parseInt(dStr) || 1;
+                }
+
+                const eEnd = new Date(eDate);
+                eEnd.setDate(eDate.getDate() + durationNum);
+
+                const isWithinRange = sDate >= eDate && sDate < eEnd;
+                const isPal = (e.title === 'Palestra' || e.title === 'Workshop' || lectureModels.some(m => m.name === e.title)); 
+                const matchesTab = dashboardTab === 'palestras' ? isPal : !isPal; 
+                return isWithinRange && matchesTab; 
+              }).sort((a, b) => (a.date ? new Date(a.date).getTime() : 0) - (b.date ? new Date(b.date).getTime() : 0))} 
               onDeleteEvent={(id) => setDeleteData({ isOpen: true, eventId: id })} 
               onAddPayment={(e) => { setSelectedEventForPayment(e); setIsPaymentModalOpen(true); }} 
               onEditEvent={(e) => { setEditingEvent(e); setPreSelectedModel( (e.title === 'Palestra' || e.title === 'Workshop' || lectureModels.some(m => m.name === e.title)) ? 'Palestra' : 'Curso'); setIsAddEventOpen(true); }} 
               onShareEvent={(e) => setShareData({ isOpen: true, event: e })} 
-              onToggleMaterial={handleToggleMaterial}
-              onToggleAbate={handleToggleAbate}
-              onQuickAddMaterial={handleQuickAddMaterial}
-              onRemoveMaterial={handleRemoveMaterial}
+              onToggleMaterial={handleToggleMaterial} 
+              onToggleAbate={handleToggleAbate} 
+              onQuickAddMaterial={handleQuickAddMaterial} 
+              onRemoveMaterial={handleRemoveMaterial} 
               courseTypes={courseTypes} 
-              lectureModels={lectureModels}
+              lectureModels={lectureModels} 
             />
           </>
         );
@@ -452,18 +430,9 @@ function App() {
       </header>
       <Drawer isOpen={isDrawerOpen} onClose={() => setIsDrawerOpen(false)} currentView={currentView} onChangeView={setCurrentView} onLogout={handleLogout} />
       <main className="relative max-w-md mx-auto min-h-screen sm:max-w-xl md:max-w-2xl lg:max-w-4xl xl:max-w-5xl pt-16">{renderContent()}</main>
-      
       {currentView === AppView.HOME && !isAddEventOpen && !isTypeSelectionOpen && (
-          <button 
-            onClick={() => setIsTypeSelectionOpen(true)}
-            className={`fixed bottom-5 right-5 z-[100] w-12 h-12 bg-primary text-white rounded-full shadow-lg flex items-center justify-center transition-all duration-500 ease-in-out transform hover:scale-110 active:scale-95 focus:outline-none
-              ${showFab ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-10 scale-50 pointer-events-none'}`}
-            title="Novo Agendamento"
-          >
-            <PlusIcon className="w-7 h-7" />
-          </button>
+          <button onClick={() => setIsTypeSelectionOpen(true)} className={`fixed bottom-5 right-5 z-[100] w-12 h-12 bg-primary text-white rounded-full shadow-lg flex items-center justify-center transition-all duration-500 ease-in-out transform hover:scale-110 active:scale-95 focus:outline-none ${showFab ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-10 scale-50 pointer-events-none'}`} title="Novo Agendamento" > <PlusIcon className="w-7 h-7" /> </button>
       )}
-
       {isTypeSelectionOpen && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/60 backdrop-blur-md animate-fade-in">
               <div className="bg-white dark:bg-surface-dark w-full max-w-xs rounded-3xl p-6 shadow-2xl border border-gray-100 dark:border-gray-800">
