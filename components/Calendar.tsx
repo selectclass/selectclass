@@ -63,23 +63,28 @@ export const Calendar: React.FC<CalendarProps> = ({
 
   const getDayEventType = (dayDate: Date): 'palestra' | 'curso' | null => {
     let type: 'palestra' | 'curso' | null = null;
+    const dayDateString = dayDate.toDateString();
     
     events.forEach(e => {
        if (!e.date) return;
        const eDate = new Date(e.date);
-       const isStartDay = eDate.getDate() === dayDate.getDate() && 
-                          eDate.getMonth() === dayDate.getMonth() && 
-                          eDate.getFullYear() === dayDate.getFullYear();
        
-       let isWithinRange = isStartDay;
-       if (!isStartDay && e.duration && (e.duration.toLowerCase().includes('2 dia') || e.duration.toLowerCase().includes('2 day'))) {
-           const secondDay = new Date(eDate);
-           secondDay.setDate(eDate.getDate() + 1);
-           if (secondDay.getDate() === dayDate.getDate() && 
-               secondDay.getMonth() === dayDate.getMonth() && 
-               secondDay.getFullYear() === dayDate.getFullYear()) {
-               isWithinRange = true;
-           }
+       // SEGURANÇA: Só extrai duração se a string contiver explicitamente "dia"
+       // Isso evita que "09:00" seja lido como 9 dias.
+       const dStr = String(e.duration || '').toLowerCase();
+       let durationNum = 1;
+       if (dStr.includes('dia')) {
+         durationNum = parseInt(dStr) || 1;
+       }
+
+       let isWithinRange = false;
+       for (let j = 0; j < durationNum; j++) {
+         const currentRangeDay = new Date(eDate);
+         currentRangeDay.setDate(eDate.getDate() + j);
+         if (currentRangeDay.toDateString() === dayDateString) {
+           isWithinRange = true;
+           break;
+         }
        }
 
        if (isWithinRange) {
