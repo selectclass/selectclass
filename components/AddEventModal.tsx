@@ -229,6 +229,9 @@ export const AddEventModal: React.FC<AddEventModalProps> = ({
 
   if (!isOpen) return null;
 
+  const focusRingClass = isPalestraMode ? 'focus:ring-sky-500' : 'focus:ring-primary';
+  const highlightBgClass = isPalestraMode ? 'hover:bg-sky-50' : 'hover:bg-primary/5';
+
   return (
     <>
       <div className="fixed inset-0 bg-black/60 z-[80] backdrop-blur-sm transition-opacity" onClick={onClose} />
@@ -246,24 +249,24 @@ export const AddEventModal: React.FC<AddEventModalProps> = ({
               
               <div className="bg-white dark:bg-surface-dark p-5 rounded-2xl shadow-sm space-y-4">
                   <div>
-                    <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">{isPalestraMode ? 'Contratante/Evento *' : 'Nome da Aluna *'}</label>
-                    <input type="text" required value={studentName} onChange={(e) => setStudentName(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-bg-dark text-gray-800 dark:text-white focus:ring-2 focus:ring-primary outline-none transition-all font-bold" placeholder={isPalestraMode ? "Ex: Eventos S.A." : "Ex: Ana Silva"} />
+                    <label className={`block text-[10px] font-black uppercase tracking-widest mb-1 ${isPalestraMode ? 'text-sky-500/70' : 'text-gray-400'}`}>{isPalestraMode ? 'Contratante/Evento *' : 'Nome da Aluna *'}</label>
+                    <input type="text" required value={studentName} onChange={(e) => setStudentName(e.target.value)} className={`w-full px-4 py-3 rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-bg-dark text-gray-800 dark:text-white focus:ring-2 ${focusRingClass} outline-none transition-all font-bold`} placeholder={isPalestraMode ? "Ex: Eventos S.A." : "Ex: Ana Silva"} />
                   </div>
 
                   <div>
-                    <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">WhatsApp</label>
+                    <label className={`block text-[10px] font-black uppercase tracking-widest mb-1 ${isPalestraMode ? 'text-sky-500/70' : 'text-gray-400'}`}>WhatsApp</label>
                     <div className="relative">
-                        <WhatsAppIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-300" />
-                        <input type="tel" value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} className="w-full pl-11 pr-4 py-3 rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-bg-dark text-gray-800 dark:text-white focus:ring-2 focus:ring-primary outline-none transition-all font-bold" placeholder="(00) 00000-0000" />
+                        <WhatsAppIcon className={`absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 ${isPalestraMode ? 'text-sky-300' : 'text-gray-300'}`} />
+                        <input type="tel" value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} className={`w-full pl-11 pr-4 py-3 rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-bg-dark text-gray-800 dark:text-white focus:ring-2 ${focusRingClass} outline-none transition-all font-bold`} placeholder="(00) 00000-0000" />
                     </div>
                   </div>
 
                   <div className="relative" ref={dropdownRef}>
-                    <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Nome do Evento *</label>
+                    <label className={`block text-[10px] font-black uppercase tracking-widest mb-1 ${isPalestraMode ? 'text-sky-500/70' : 'text-gray-400'}`}>Nome do Evento *</label>
                     <button 
                         type="button" 
                         onClick={() => setShowCourseDropdown(!showCourseDropdown)}
-                        className="w-full flex items-center justify-between px-4 py-3 rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-bg-dark text-gray-800 dark:text-white focus:ring-2 focus:ring-primary outline-none text-left transition-all"
+                        className={`w-full flex items-center justify-between px-4 py-3 rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-bg-dark text-gray-800 dark:text-white focus:ring-2 ${focusRingClass} outline-none text-left transition-all`}
                     >
                         <span className={course ? 'font-bold' : 'text-gray-400'}>{course || "Selecione..."}</span>
                         <ChevronRightIcon className={`w-4 h-4 text-gray-400 transition-transform ${showCourseDropdown ? 'rotate-90' : ''}`} />
@@ -275,7 +278,7 @@ export const AddEventModal: React.FC<AddEventModalProps> = ({
                                     key={String(option)} 
                                     type="button"
                                     onClick={() => selectCourse(String(option))}
-                                    className="w-full px-4 py-2.5 text-left text-sm font-bold text-gray-700 dark:text-gray-200 hover:bg-primary/5 dark:hover:bg-primary/10 transition-colors border-b border-gray-50 dark:border-gray-800 last:border-0"
+                                    className={`w-full px-4 py-2.5 text-left text-sm font-bold text-gray-700 dark:text-gray-200 transition-colors border-b border-gray-50 dark:border-gray-800 last:border-0 ${highlightBgClass}`}
                                 >
                                     {String(option)}
                                 </button>
@@ -285,10 +288,10 @@ export const AddEventModal: React.FC<AddEventModalProps> = ({
                   </div>
 
                   <div>
-                    <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Local do Evento</label>
+                    <label className={`block text-[10px] font-black uppercase tracking-widest mb-1 ${isPalestraMode ? 'text-sky-500/70' : 'text-gray-400'}`}>Local do Evento</label>
                     <div className="relative">
-                        <MapPinIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-300" />
-                        <input type="text" value={eventLocation} onChange={(e) => setEventLocation(e.target.value)} className="w-full pl-11 pr-4 py-3 rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-bg-dark text-gray-800 dark:text-white focus:ring-2 focus:ring-primary outline-none transition-all font-bold" placeholder="Ex: Sala 01, Studio, Endereço completo..." />
+                        <MapPinIcon className={`absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 ${isPalestraMode ? 'text-sky-300' : 'text-gray-300'}`} />
+                        <input type="text" value={eventLocation} onChange={(e) => setEventLocation(e.target.value)} className={`w-full pl-11 pr-4 py-3 rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-bg-dark text-gray-800 dark:text-white focus:ring-2 ${focusRingClass} outline-none transition-all font-bold`} placeholder="Ex: Sala 01, Studio, Endereço completo..." />
                     </div>
                   </div>
 
@@ -298,14 +301,14 @@ export const AddEventModal: React.FC<AddEventModalProps> = ({
                             <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Data</label>
                             <div className="relative">
                                 <CalendarIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-300" />
-                                <input type="date" required value={dateStr} onChange={(e) => setDateStr(e.target.value)} className="w-full pl-9 pr-1 py-3 rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-bg-dark text-gray-800 dark:text-white focus:ring-2 focus:ring-primary outline-none transition-all text-[11px] font-bold" />
+                                <input type="date" required value={dateStr} onChange={(e) => setDateStr(e.target.value)} className={`w-full pl-9 pr-1 py-3 rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-bg-dark text-gray-800 dark:text-white focus:ring-2 ${focusRingClass} outline-none transition-all text-[11px] font-bold`} />
                             </div>
                         </div>
                         <div>
                             <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Horário</label>
                             <div className="relative">
                                 <ClockIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-300" />
-                                <input type="time" value={timeStr} onChange={(e) => setTimeStr(e.target.value)} className="w-full pl-9 pr-1 py-3 rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-bg-dark text-gray-800 dark:text-white focus:ring-2 focus:ring-primary outline-none transition-all text-[11px] font-bold" />
+                                <input type="time" value={timeStr} onChange={(e) => setTimeStr(e.target.value)} className={`w-full pl-9 pr-1 py-3 rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-bg-dark text-gray-800 dark:text-white focus:ring-2 ${focusRingClass} outline-none transition-all text-[11px] font-bold`} />
                             </div>
                         </div>
                     </div>
@@ -313,37 +316,34 @@ export const AddEventModal: React.FC<AddEventModalProps> = ({
               </div>
 
               {isPalestraMode ? (
-                  /* NOVO LAYOUT REESTRUTURADO PARA PALESTRA */
                   <div className="bg-white dark:bg-surface-dark p-5 rounded-2xl shadow-sm space-y-4">
-                      {/* LINHA 1: DATA E HORÁRIO */}
                       <div className="grid grid-cols-2 gap-3">
                           <div className="flex flex-col">
-                              <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Data</label>
+                              <label className="block text-[10px] font-black text-sky-500/70 uppercase tracking-widest mb-1">Data</label>
                               <div className="relative">
-                                  <CalendarIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-300" />
+                                  <CalendarIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-sky-300" />
                                   <input type="date" required value={dateStr} onChange={(e) => setDateStr(e.target.value)} className="w-full pl-9 pr-1 py-3 rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-bg-dark text-gray-800 dark:text-white focus:ring-2 focus:ring-sky-500 outline-none transition-all text-[11px] font-bold" />
                               </div>
                           </div>
                           <div className="flex flex-col">
-                              <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Horário</label>
+                              <label className="block text-[10px] font-black text-sky-500/70 uppercase tracking-widest mb-1">Horário</label>
                               <div className="relative">
-                                  <ClockIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-300" />
+                                  <ClockIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-sky-300" />
                                   <input type="time" value={timeStr} onChange={(e) => setTimeStr(e.target.value)} className="w-full pl-9 pr-1 py-3 rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-bg-dark text-gray-800 dark:text-white focus:ring-2 focus:ring-sky-500 outline-none transition-all text-[11px] font-bold" />
                               </div>
                           </div>
                       </div>
                       
-                      {/* LINHA 2: VALOR E PAGAMENTO */}
                       <div className="grid grid-cols-2 gap-3">
                           <div className="flex flex-col">
-                              <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Valor do Cachê</label>
+                              <label className="block text-[10px] font-black text-sky-500/70 uppercase tracking-widest mb-1">Valor do Cachê</label>
                               <div className="relative">
-                                  <DollarSignIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-300" />
+                                  <DollarSignIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-sky-300" />
                                   <input type="number" step="0.01" value={valueStr} onChange={(e) => setValueStr(e.target.value)} className="w-full pl-11 pr-4 py-3 rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-bg-dark text-gray-800 dark:text-white focus:ring-2 focus:ring-sky-500 outline-none transition-all font-bold" placeholder="0,00" />
                               </div>
                           </div>
                           <div className="flex flex-col">
-                              <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Pagamento</label>
+                              <label className="block text-[10px] font-black text-sky-500/70 uppercase tracking-widest mb-1">Pagamento</label>
                               <div className="grid grid-cols-2 gap-1 h-full">
                                   <button 
                                     type="button" 
@@ -363,9 +363,8 @@ export const AddEventModal: React.FC<AddEventModalProps> = ({
                           </div>
                       </div>
 
-                      {/* LINHA 3: MÉTODOS DE PAGAMENTO */}
                       <div className="space-y-1">
-                          <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest">Método de Recebimento</label>
+                          <label className="block text-[10px] font-black text-sky-500/70 uppercase tracking-widest">Método de Recebimento</label>
                           <div className="flex gap-2">
                               {['Pix', 'Cartão', 'Dinheiro'].map(method => (
                                   <button
@@ -438,7 +437,7 @@ export const AddEventModal: React.FC<AddEventModalProps> = ({
                                   </label>
                                   <div className="relative">
                                       <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 font-bold text-xs">R$</span>
-                                      <input type="number" step="0.01" value={depositStr} onChange={(e) => setDepositStr(e.target.value)} className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-bg-dark text-gray-800 dark:text-white focus:ring-2 focus:ring-primary outline-none transition-all font-bold" placeholder="0,00" />
+                                      <input type="number" step="0.01" value={depositStr} onChange={(e) => setDepositStr(e.target.value)} className={`w-full pl-10 pr-4 py-3 rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-bg-dark text-gray-800 dark:text-white focus:ring-2 ${focusRingClass} outline-none transition-all font-bold`} placeholder="0,00" />
                                   </div>
                             </div>
                              <div>
@@ -446,7 +445,7 @@ export const AddEventModal: React.FC<AddEventModalProps> = ({
                                   <select 
                                     value={paymentMethod} 
                                     onChange={(e) => handleMethodChange(e.target.value)} 
-                                    className="w-full px-4 py-3 rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-bg-dark text-gray-800 dark:text-white focus:ring-2 focus:ring-primary outline-none appearance-none transition-all font-bold"
+                                    className={`w-full px-4 py-3 rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-bg-dark text-gray-800 dark:text-white focus:ring-2 ${focusRingClass} outline-none appearance-none transition-all font-bold`}
                                   >
                                       <option value="Facilitado">Facilitado</option>
                                       <option value="Pix">Pix</option>
@@ -461,7 +460,7 @@ export const AddEventModal: React.FC<AddEventModalProps> = ({
 
               {localPayments.length > 0 && (
                 <div className="bg-white dark:bg-surface-dark p-5 rounded-2xl shadow-sm">
-                    <p className="text-[10px] font-black text-red-500 uppercase tracking-widest mb-4 flex items-center gap-2">
+                    <p className={`text-[10px] font-black uppercase tracking-widest mb-4 flex items-center gap-2 ${isPalestraMode ? 'text-sky-500' : 'text-red-500'}`}>
                         <DollarSignIcon className="w-3 h-3" /> VALORES LANÇADOS
                     </p>
                     <div className="space-y-2">
@@ -473,7 +472,7 @@ export const AddEventModal: React.FC<AddEventModalProps> = ({
                                         {new Date(p.date).toLocaleDateString('pt-BR')} {p.method ? `• ${p.method}` : ''}
                                     </p>
                                 </div>
-                                <button type="button" onClick={() => removePayment(p.id)} className="p-2 text-red-400 hover:text-red-600 transition-colors">
+                                <button type="button" onClick={() => removePayment(p.id)} className={`p-2 transition-colors ${isPalestraMode ? 'text-sky-300 hover:text-sky-500' : 'text-red-400 hover:text-red-600'}`}>
                                     <TrashIcon className="w-4 h-4" />
                                 </button>
                             </div>
