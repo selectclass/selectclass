@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { CalendarEvent, CourseType, MaterialItem, LectureModel } from '../types';
 import { TrashIcon, ShareIcon, PencilIcon, AlertCircleIcon, PlusIcon, CalendarIcon, MapPinIcon, WhatsAppIcon, ClockIcon, BoxIcon, SquareIcon, CheckSquareIcon, CheckIcon, XIcon, DollarSignIcon } from './Icons';
 import { ConfirmationModal } from './ConfirmationModal';
@@ -43,6 +43,8 @@ export const EventList: React.FC<EventListProps> = ({
   const [quickMaterialName, setQuickMaterialName] = useState<{ [key: string]: string }>({});
   const [quickMaterialCost, setQuickMaterialCost] = useState<{ [key: string]: string }>({});
   const [removeConfirm, setRemoveConfirm] = useState<{ isOpen: boolean; eventId: string; materialId: string } | null>(null);
+  
+  const eventRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
 
   const checkIfPalestra = (evt: CalendarEvent) => {
     const courseConfig = courseTypes.find(c => c.name === evt.title);
@@ -52,7 +54,20 @@ export const EventList: React.FC<EventListProps> = ({
            lectureModels.some(m => m.name === evt.title);
   };
 
-  // Identifica contextualmente se o item a ser removido é de uma palestra para mudar o texto e cor do modal
+  // Efeito para rolar até o dia selecionado no calendário
+  useEffect(() => {
+    const dateKey = date.toISOString().split('T')[0];
+    const targetElement = eventRefs.current[dateKey];
+    if (targetElement) {
+      const headerHeight = 80; // Ajuste para o cabeçalho fixo
+      const elementPosition = targetElement.getBoundingClientRect().top + window.pageYOffset;
+      window.scrollTo({
+        top: elementPosition - headerHeight,
+        behavior: 'smooth'
+      });
+    }
+  }, [date]);
+
   const isPalestraTarget = useMemo(() => {
     if (!removeConfirm) return false;
     const targetEvent = events.find(e => e.id === removeConfirm.eventId);
@@ -89,10 +104,11 @@ export const EventList: React.FC<EventListProps> = ({
       <h3 className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-[0.2em] mb-6 text-center">
         Agendamentos de {monthName} {year}
       </h3>
-      <div className="space-y-4">
+      <div className="space-y-8">
         {events.map((evt) => {
           const isPalestra = checkIfPalestra(evt);
           const courseValue = parseCurrency(evt.value) || 0;
+          const dateKey = evt.date ? new Date(evt.date).toISOString().split('T')[0] : '';
 
           const payments = evt.payments || [];
           const totalPaid = payments.reduce((acc, p) => acc + parseCurrency(p.amount), 0);
@@ -127,6 +143,7 @@ export const EventList: React.FC<EventListProps> = ({
           return (
             <div 
               key={evt.id}
+              ref={el => { if (dateKey) eventRefs.current[dateKey] = el; }}
               className={`bg-white dark:bg-surface-dark rounded-xl shadow-lg border border-gray-100 dark:border-gray-800 overflow-hidden relative transition-all duration-300
                  ${isCloseOrOverdue ? 'ring-2 ring-red-600 dark:ring-red-50' : (isPalestra ? 'border-sky-200 shadow-sky-500/10' : '')}
               `}
