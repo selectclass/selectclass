@@ -366,7 +366,7 @@ export const EventList: React.FC<EventListProps> = ({
                       href={waLink} 
                       target="_blank" 
                       rel="noopener noreferrer" 
-                      className="flex-1 py-3 flex items-center justify-center text-sky-500 active:bg-emerald-500 active:text-white transition-all" 
+                      className="flex-1 py-3 flex items-center justify-center text-gray-400 active:text-sky-500 transition-all" 
                       title="WhatsApp"
                     >
                       <WhatsAppIcon className="w-5 h-5" />
