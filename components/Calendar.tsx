@@ -84,7 +84,6 @@ export const Calendar: React.FC<CalendarProps> = ({
 
        if (isWithinRange) {
          const isPal = checkIfPalestra(e);
-         // Prioridade para Palestra na visualização caso existam ambos no mesmo dia
          if (isPal) type = 'palestra';
          else if (!type) type = 'curso';
        }
@@ -115,12 +114,12 @@ export const Calendar: React.FC<CalendarProps> = ({
       let dayStyle = '';
       if (blocked) {
         dayStyle = 'text-gray-300 dark:text-gray-600 cursor-not-allowed opacity-50';
+      } else if (eventType === 'palestra') {
+        dayStyle = `bg-sky-500 text-white font-black shadow-md ${isSelected ? 'ring-4 ring-sky-200 dark:ring-sky-900/50 scale-110' : ''}`;
+      } else if (eventType === 'curso') {
+        dayStyle = `bg-primary text-white font-black shadow-md ${isSelected ? 'ring-4 ring-primary/30 dark:ring-blue-900/50 scale-110' : ''}`;
       } else if (isSelected) {
         dayStyle = 'bg-primary text-white shadow-lg shadow-primary/30 scale-105 font-semibold';
-      } else if (eventType === 'palestra') {
-        dayStyle = 'bg-sky-500/10 text-sky-600 dark:text-sky-300 font-bold border border-sky-500/20';
-      } else if (eventType === 'curso') {
-        dayStyle = 'bg-primary/10 text-primary dark:text-blue-300 font-bold border border-primary/20';
       } else {
         dayStyle = 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-white/10 font-medium';
       }
