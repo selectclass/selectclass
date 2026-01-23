@@ -280,7 +280,42 @@ function App() {
 
   const renderContent = () => {
     switch (currentView) {
-      case AppView.HOME:
+      case AppView.HOME: {
+        // Lógica de filtro para o card de resumo
+        const dashboardFilteredEvents = allEvents.filter(e => {
+            if (!e.date) return false;
+            const d = new Date(e.date);
+            const isSameMonth = d.getMonth() === dashboardDate.getMonth() && d.getFullYear() === dashboardDate.getFullYear();
+            if (!isSameMonth) return false;
+            const isPal = (e.title === 'Palestra' || e.title === 'Workshop' || lectureModels.some(m => m.name === e.title));
+            return dashboardTab === 'palestras' ? isPal : !isPal;
+        });
+
+        const totalValue = dashboardFilteredEvents.reduce((a, c) => a + (c.value || 0), 0);
+        const totalPending = dashboardFilteredEvents.reduce((acc, event) => {
+            const courseValue = event.value || 0;
+            const paymentsReceived = event.payments?.reduce((s, p) => s + p.amount, 0) || 0;
+            const pending = Math.max(0, courseValue - paymentsReceived);
+            return acc + pending;
+        }, 0);
+
+        // Ajuste no cálculo do Líquido para refletir o lucro real (Faturamento - Gastos abatidos)
+        const totalLiquid = dashboardFilteredEvents.reduce((acc, event) => {
+            const isPal = (event.title === 'Palestra' || event.title === 'Workshop' || lectureModels.some(m => m.name === event.title));
+            const courseValue = event.value || 0;
+            const totalMaterialCost = (event.materials || []).filter(m => m.checked).reduce((s, m) => s + (parseCurrency(m.cost) || 0), 0);
+            
+            let eventNet = 0;
+            if (isPal) {
+                // Para palestras, só abate se 'abateExpenses' estiver marcado
+                eventNet = event.abateExpenses ? (courseValue - totalMaterialCost) : courseValue;
+            } else {
+                // Para cursos, sempre abate o custo de materiais do líquido projetado
+                eventNet = courseValue - totalMaterialCost;
+            }
+            return acc + eventNet;
+        }, 0);
+
         return (
           <>
             <div className="px-5 pt-6 pb-2 space-y-3">
@@ -311,9 +346,9 @@ function App() {
                     </div>
                     <div className="flex justify-center mb-5"><div className="bg-gray-100 dark:bg-white/5 px-4 py-2 rounded-full font-black text-xs uppercase text-gray-600 dark:text-gray-300">{dashboardDate.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }).toUpperCase()}</div></div>
                     <div className="grid grid-cols-3 gap-2 divide-x divide-gray-100 pt-1 text-center">
-                        <div><p className="text-[9px] font-black text-gray-400 uppercase mb-1">Cachê/Faturamento</p><p className="font-black text-gray-800 dark:text-white text-sm">{showDashboardRevenue ? `R$ ${allEvents.filter(e => e.date && new Date(e.date).getMonth() === dashboardDate.getMonth() && (dashboardTab === 'palestras' ? (e.title === 'Palestra' || e.title === 'Workshop' || lectureModels.some(m => m.name === e.title)) : !(e.title === 'Palestra' || e.title === 'Workshop' || lectureModels.some(m => m.name === e.title)))).reduce((a,c) => a + (c.value || 0), 0).toLocaleString('pt-BR')}` : 'R$ ---'}</p></div>
-                        <div className="px-1"><p className="text-[9px] font-black text-gray-400 uppercase mb-1">Pendente</p><p className="font-black text-red-500 text-sm">{showDashboardRevenue ? `R$ ${allEvents.filter(e => e.date && new Date(e.date).getMonth() === dashboardDate.getMonth() && e.paymentStatus === 'pending').reduce((a,c) => a + ((c.value || 0) - (c.payments?.reduce((s,p) => s + p.amount, 0) || 0)), 0).toLocaleString('pt-BR')}` : 'R$ ---'}</p></div>
-                        <div><p className="text-[9px] font-black text-gray-400 uppercase mb-1">Líquido</p><p className="font-black text-emerald-500 text-sm">{showDashboardRevenue ? `R$ ${allEvents.filter(e => e.date && new Date(e.date).getMonth() === dashboardDate.getMonth()).reduce((a,c) => a + (c.payments?.reduce((s,p) => s + p.amount, 0) || 0), 0).toLocaleString('pt-BR')}` : 'R$ ---'}</p></div>
+                        <div><p className="text-[9px] font-black text-gray-400 uppercase mb-1">Cachê/Faturamento</p><p className="font-black text-gray-800 dark:text-white text-sm">{showDashboardRevenue ? `R$ ${totalValue.toLocaleString('pt-BR')}` : 'R$ ---'}</p></div>
+                        <div className="px-1"><p className="text-[9px] font-black text-gray-400 uppercase mb-1">Pendente</p><p className="font-black text-red-500 text-sm">{showDashboardRevenue ? `R$ ${totalPending.toLocaleString('pt-BR')}` : 'R$ ---'}</p></div>
+                        <div><p className="text-[9px] font-black text-gray-400 uppercase mb-1">Líquido</p><p className="font-black text-emerald-500 text-sm">{showDashboardRevenue ? `R$ ${totalLiquid.toLocaleString('pt-BR')}` : 'R$ ---'}</p></div>
                     </div>
                 </div>
             </div>
@@ -333,6 +368,7 @@ function App() {
             />
           </>
         );
+      }
       case AppView.ALL_EVENTS: return <AllEventsList events={allEvents} courseTypes={courseTypes} lectureModels={lectureModels} onSelectDate={(d) => { setSelectedDate(d); setCurrentView(AppView.HOME); }} />;
       case AppView.LECTURE_MODELS: return <LectureModelManager models={lectureModels} onAdd={(m) => api.put('v1/lecture_models/' + m.id, m).then(refreshData)} onRemove={(id) => api.delete('v1/lecture_models/' + id).then(refreshData)} onSaveOrder={handleSaveLectureOrder} />;
       case AppView.STUDENTS: return <StudentsList students={students} onEdit={(s) => { setEditingStudent(s); setIsStudentModalOpen(true); }} onDelete={(id) => setDeleteStudentData({ isOpen: true, studentId: id })} />;
