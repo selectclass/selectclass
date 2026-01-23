@@ -88,7 +88,7 @@ function App() {
         const remoteCreds = await api.get('v1/config/credentials');
         if (remoteCreds && remoteCreds.user && remoteCreds.pass) {
             setCredentials(remoteCreds);
-            localStorage.setItem('auth_credentials', JSON.parse(JSON.stringify(remoteCreds)));
+            localStorage.setItem('auth_credentials', JSON.stringify(remoteCreds));
         }
     };
     fetchConfig();
@@ -330,9 +330,37 @@ function App() {
             </div>
             <Calendar 
               selectedDate={selectedDate} 
-              onSelectDate={setSelectedDate} 
+              onSelectDate={(date) => {
+                setSelectedDate(date);
+                // Busca eventos neste dia específico para mudar a aba automaticamente
+                const eventsOnDay = allEvents.filter(e => {
+                  if (!e.date) return false;
+                  const eDate = new Date(e.date);
+                  const isMainDay = eDate.toDateString() === date.toDateString();
+                  if (isMainDay) return true;
+                  
+                  // Verifica se é o segundo dia de um evento de 2 dias
+                  if (e.duration && (e.duration.toLowerCase().includes('2 dia') || e.duration.toLowerCase().includes('2 day'))) {
+                    const secondDay = new Date(eDate);
+                    secondDay.setDate(eDate.getDate() + 1);
+                    return secondDay.toDateString() === date.toDateString();
+                  }
+                  return false;
+                });
+
+                if (eventsOnDay.length > 0) {
+                  const hasPalestra = eventsOnDay.some(e => 
+                    e.title === 'Palestra' || 
+                    e.title === 'Workshop' || 
+                    lectureModels.some(m => m.name === e.title)
+                  );
+                  setDashboardTab(hasPalestra ? 'palestras' : 'cursos');
+                }
+              }} 
               onMonthChange={(newMonthDate) => setDashboardDate(newMonthDate)}
               events={allEvents} 
+              courseTypes={courseTypes}
+              lectureModels={lectureModels}
             />
             <div className="px-4 mb-2">
                 <div className="bg-white dark:bg-surface-dark rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 p-4">
@@ -367,7 +395,21 @@ function App() {
             />
             <EventList 
               date={selectedDate} 
-              events={allEvents.filter(e => e.date && new Date(e.date).toDateString() === selectedDate.toDateString() && (dashboardTab === 'palestras' ? (e.title === 'Palestra' || e.title === 'Workshop' || lectureModels.some(m => m.name === e.title)) : !(e.title === 'Palestra' || e.title === 'Workshop' || lectureModels.some(m => m.name === e.title))))} 
+              events={allEvents
+                .filter(e => {
+                  if (!e.date) return false;
+                  const d = new Date(e.date);
+                  const isSameMonth = d.getMonth() === dashboardDate.getMonth() && d.getFullYear() === dashboardDate.getFullYear();
+                  const isPal = (e.title === 'Palestra' || e.title === 'Workshop' || lectureModels.some(m => m.name === e.title));
+                  const matchesTab = dashboardTab === 'palestras' ? isPal : !isPal;
+                  return isSameMonth && matchesTab;
+                })
+                .sort((a, b) => {
+                  const da = a.date ? new Date(a.date).getTime() : 0;
+                  const db = b.date ? new Date(b.date).getTime() : 0;
+                  return da - db;
+                })
+              } 
               onDeleteEvent={(id) => setDeleteData({ isOpen: true, eventId: id })} 
               onAddPayment={(e) => { setSelectedEventForPayment(e); setIsPaymentModalOpen(true); }} 
               onEditEvent={(e) => { setEditingEvent(e); setPreSelectedModel( (e.title === 'Palestra' || e.title === 'Workshop' || lectureModels.some(m => m.name === e.title)) ? 'Palestra' : 'Curso'); setIsAddEventOpen(true); }} 
