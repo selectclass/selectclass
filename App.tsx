@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { AppView, CalendarEvent, CourseType, Student, Expense, MaterialItem, LectureModel } from './types';
 import { Drawer } from './components/Drawer';
@@ -365,6 +364,7 @@ function App() {
               onQuickAddMaterial={handleQuickAddMaterial}
               onRemoveMaterial={handleRemoveMaterial}
               courseTypes={courseTypes} 
+              lectureModels={lectureModels}
             />
           </>
         );
@@ -415,11 +415,11 @@ function App() {
                   <div className="flex flex-col items-center mb-6 relative"><button onClick={() => setIsTypeSelectionOpen(false)} className="absolute -top-1 -right-1 text-gray-400 p-1"><XIcon className="w-5 h-5" /></button><h3 className="text-base font-black text-gray-800 dark:text-white uppercase tracking-tighter whitespace-nowrap">NOVO AGENDAMENTO</h3></div>
                   <div className="space-y-3">
                       <button onClick={() => { setPreSelectedModel('Curso'); setIsTypeSelectionOpen(false); setEditingEvent(null); setIsAddEventOpen(true); }} className="w-full flex items-center gap-3 py-2.5 px-4 bg-blue-50 hover:bg-blue-100 dark:bg-primary/10 dark:hover:bg-primary/20 rounded-full border border-blue-100 dark:border-primary/20 transition-all group active:scale-[0.98]">
-                          <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-white shadow-md"><GraduationCapIcon className="w-5 h-5" /></div>
+                          <div className="w-8 h-8 rounded-full bg-primary text-white shadow-md flex items-center justify-center"><GraduationCapIcon className="w-5 h-5" /></div>
                           <span className="text-xs font-black text-primary dark:text-blue-300 uppercase tracking-widest whitespace-nowrap">Agendar Curso</span>
                       </button>
                       <button onClick={() => { setPreSelectedModel('Palestra'); setIsTypeSelectionOpen(false); setEditingEvent(null); setIsAddEventOpen(true); }} className="w-full flex items-center gap-3 py-2.5 px-4 bg-sky-50 hover:bg-sky-100 dark:bg-sky-500/10 dark:hover:bg-sky-500/20 rounded-full border border-sky-100 dark:border-sky-500/20 transition-all group active:scale-[0.98]">
-                          <div className="w-8 h-8 rounded-full bg-sky-500 flex items-center justify-center text-white shadow-md"><MicIcon className="w-5 h-5" /></div>
+                          <div className="w-8 h-8 rounded-full bg-sky-500 text-white shadow-md flex items-center justify-center"><MicIcon className="w-5 h-5" /></div>
                           <span className="text-xs font-black text-sky-600 dark:text-sky-300 uppercase tracking-widest whitespace-nowrap">Agendar Palestra</span>
                       </button>
                   </div>
