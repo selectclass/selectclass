@@ -88,7 +88,7 @@ function App() {
         const remoteCreds = await api.get('v1/config/credentials');
         if (remoteCreds && remoteCreds.user && remoteCreds.pass) {
             setCredentials(remoteCreds);
-            localStorage.setItem('auth_credentials', JSON.stringify(remoteCreds));
+            localStorage.setItem('auth_credentials', JSON.parse(JSON.stringify(remoteCreds)));
         }
     };
     fetchConfig();
@@ -351,7 +351,20 @@ function App() {
                     </div>
                 </div>
             </div>
-            <UnifiedSearch searchTerm={searchTerm} onSearchChange={setSearchTerm} activeTab={dashboardTab} onTabChange={setDashboardTab} allEvents={allEvents} courseTypes={courseTypes} onResultClick={(e) => { if(e.date) setSelectedDate(new Date(e.date)); setSearchTerm(''); }} />
+            <UnifiedSearch 
+                searchTerm={searchTerm} 
+                onSearchChange={setSearchTerm} 
+                activeTab={dashboardTab} 
+                onTabChange={setDashboardTab} 
+                allEvents={allEvents} 
+                courseTypes={courseTypes} 
+                onResultClick={(e) => { 
+                    if(e.date) setSelectedDate(new Date(e.date)); 
+                    const isPal = (e.title === 'Palestra' || e.title === 'Workshop' || lectureModels.some(m => m.name === e.title));
+                    setDashboardTab(isPal ? 'palestras' : 'cursos');
+                    setSearchTerm(''); 
+                }} 
+            />
             <EventList 
               date={selectedDate} 
               events={allEvents.filter(e => e.date && new Date(e.date).toDateString() === selectedDate.toDateString() && (dashboardTab === 'palestras' ? (e.title === 'Palestra' || e.title === 'Workshop' || lectureModels.some(m => m.name === e.title)) : !(e.title === 'Palestra' || e.title === 'Workshop' || lectureModels.some(m => m.name === e.title))))} 
@@ -369,7 +382,7 @@ function App() {
           </>
         );
       }
-      case AppView.ALL_EVENTS: return <AllEventsList events={allEvents} courseTypes={courseTypes} lectureModels={lectureModels} onSelectDate={(d) => { setSelectedDate(d); setCurrentView(AppView.HOME); }} />;
+      case AppView.ALL_EVENTS: return <AllEventsList events={allEvents} courseTypes={courseTypes} lectureModels={lectureModels} onEventClick={(e) => { if(e.date) setSelectedDate(new Date(e.date)); const isPal = (e.title === 'Palestra' || e.title === 'Workshop' || lectureModels.some(m => m.name === e.title)); setDashboardTab(isPal ? 'palestras' : 'cursos'); setCurrentView(AppView.HOME); }} />;
       case AppView.LECTURE_MODELS: return <LectureModelManager models={lectureModels} onAdd={(m) => api.put('v1/lecture_models/' + m.id, m).then(refreshData)} onRemove={(id) => api.delete('v1/lecture_models/' + id).then(refreshData)} onSaveOrder={handleSaveLectureOrder} />;
       case AppView.STUDENTS: return <StudentsList students={students} onEdit={(s) => { setEditingStudent(s); setIsStudentModalOpen(true); }} onDelete={(id) => setDeleteStudentData({ isOpen: true, studentId: id })} />;
       case AppView.HISTORY: return <HistoryScreen events={allEvents} courseTypes={courseTypes} />;
