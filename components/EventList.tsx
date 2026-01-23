@@ -60,7 +60,8 @@ export const EventList: React.FC<EventListProps> = ({
     return checkIfPalestra(targetEvent);
   }, [removeConfirm, events, courseTypes, lectureModels]);
 
-  const formattedDate = date.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' }).toLowerCase();
+  const monthName = date.toLocaleDateString('pt-BR', { month: 'long' }).toLowerCase();
+  const year = date.getFullYear();
 
   const handleQuickAdd = (eventId: string) => {
     const name = quickMaterialName[eventId];
@@ -78,15 +79,15 @@ export const EventList: React.FC<EventListProps> = ({
         <div className="bg-gray-100 dark:bg-white/5 p-4 rounded-full mb-4">
           <CalendarIcon className="w-8 h-8 text-gray-400" />
         </div>
-        <p className="text-gray-500 dark:text-gray-400 font-medium">Agenda livre</p>
+        <p className="text-gray-500 dark:text-gray-400 font-medium">Agenda livre para {monthName}</p>
       </div>
     );
   }
 
   return (
     <div className="px-4 py-4 pb-32">
-      <h3 className="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-4 ml-1 text-center">
-        {formattedDate}
+      <h3 className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-[0.2em] mb-6 text-center">
+        Agendamentos de {monthName} {year}
       </h3>
       <div className="space-y-4">
         {events.map((evt) => {
