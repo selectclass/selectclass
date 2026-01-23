@@ -6,10 +6,10 @@ interface AllEventsListProps {
   events: CalendarEvent[];
   courseTypes: CourseType[];
   lectureModels: LectureModel[];
-  onSelectDate: (date: Date) => void;
+  onEventClick: (event: CalendarEvent) => void;
 }
 
-export const AllEventsList: React.FC<AllEventsListProps> = ({ events, courseTypes, lectureModels, onSelectDate }) => {
+export const AllEventsList: React.FC<AllEventsListProps> = ({ events, courseTypes, lectureModels, onEventClick }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState<'cursos' | 'palestras'>('cursos');
 
@@ -112,7 +112,7 @@ export const AllEventsList: React.FC<AllEventsListProps> = ({ events, courseType
             return (
               <button 
                 key={event.id}
-                onClick={() => onSelectDate(date)}
+                onClick={() => onEventClick(event)}
                 className="w-full bg-white dark:bg-surface-dark p-4 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 text-left hover:scale-[1.01] transition-transform active:scale-[0.98]"
               >
                 <div className="flex justify-between items-start mb-2">
