@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { CourseType } from '../types';
-import { PlusIcon, TrashIcon, PencilIcon, XIcon, CheckIcon, GraduationCapIcon, MenuIcon, ClockIcon, DollarSignIcon, CalendarIcon } from './Icons';
+import { PlusIcon, TrashIcon, PencilIcon, XIcon, CheckIcon, GraduationCapIcon, MenuIcon, ClockIcon, DollarSignIcon, CalendarIcon, MapPinIcon, HomeIcon } from './Icons';
 
 interface CourseManagerProps {
   courseTypes: CourseType[];
@@ -16,6 +16,7 @@ export const CourseManager: React.FC<CourseManagerProps> = ({ courseTypes, onAdd
   const [value, setValue] = useState('');
   const [time, setTime] = useState('09:00');
   const [duration, setDuration] = useState('1');
+  const [locationType, setLocationType] = useState<'interno' | 'externo'>('interno');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [localList, setLocalList] = useState<CourseType[]>([]);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
@@ -35,6 +36,7 @@ export const CourseManager: React.FC<CourseManagerProps> = ({ courseTypes, onAdd
         defaultValue: parseFloat(value.replace(',', '.')) || 0,
         defaultTime: time,
         defaultDuration: duration,
+        defaultLocation: locationType,
         order: editingId ? (courseTypes.find(c => c.id === editingId)?.order || 0) : localList.length
     };
 
@@ -51,6 +53,7 @@ export const CourseManager: React.FC<CourseManagerProps> = ({ courseTypes, onAdd
     setValue('');
     setTime('09:00');
     setDuration('1');
+    setLocationType('interno');
     setEditingId(null);
   };
 
@@ -60,6 +63,7 @@ export const CourseManager: React.FC<CourseManagerProps> = ({ courseTypes, onAdd
       setValue(course.defaultValue?.toString() || '');
       setTime(course.defaultTime || '09:00');
       setDuration(course.defaultDuration || '1');
+      setLocationType(course.defaultLocation || 'interno');
       window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -131,6 +135,28 @@ export const CourseManager: React.FC<CourseManagerProps> = ({ courseTypes, onAdd
             />
           </div>
 
+          <div>
+            <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Local</label>
+            <div className="flex gap-2">
+                <button 
+                  type="button" 
+                  onClick={() => setLocationType('interno')} 
+                  className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border
+                    ${locationType === 'interno' ? 'bg-primary text-white border-primary shadow-md' : 'bg-gray-50 dark:bg-white/5 border-gray-100 dark:border-gray-800 text-gray-400'}`}
+                >
+                    <HomeIcon className="w-4 h-4" /> Interno
+                </button>
+                <button 
+                  type="button" 
+                  onClick={() => setLocationType('externo')} 
+                  className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border
+                    ${locationType === 'externo' ? 'bg-primary text-white border-primary shadow-md' : 'bg-gray-50 dark:bg-white/5 border-gray-100 dark:border-gray-800 text-gray-400'}`}
+                >
+                    <MapPinIcon className="w-4 h-4" /> Externo
+                </button>
+            </div>
+          </div>
+
           <div className="grid grid-cols-2 gap-3">
              <div>
                 <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Horário de Início</label>
@@ -191,7 +217,7 @@ export const CourseManager: React.FC<CourseManagerProps> = ({ courseTypes, onAdd
                     <MenuIcon className="w-4 h-4 text-gray-300 group-hover:text-primary transition-colors" />
                     <div>
                         <span className="text-gray-800 dark:text-gray-200 font-bold block leading-none mb-1">{course.name}</span>
-                        <span className="text-[10px] text-gray-400 font-bold uppercase tracking-tight">R$ {course.defaultValue?.toLocaleString('pt-BR')} • {course.defaultTime} • {formatDays(course.defaultDuration)}</span>
+                        <span className="text-[10px] text-gray-400 font-bold uppercase tracking-tight">R$ {course.defaultValue?.toLocaleString('pt-BR')} • {course.defaultTime} • {formatDays(course.defaultDuration)} • {course.defaultLocation || 'Interno'}</span>
                     </div>
                 </div>
                 <div className="flex items-center gap-1">
