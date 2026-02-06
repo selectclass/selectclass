@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { CalendarEvent, CourseType, PaymentRecord } from '../types';
-import { XIcon, WhatsAppIcon, CheckIcon, MapPinIcon, DollarSignIcon, TrashIcon, ClockIcon, CalendarIcon, ChevronRightIcon } from './Icons';
+import { XIcon, WhatsAppIcon, CheckIcon, MapPinIcon, DollarSignIcon, TrashIcon, ClockIcon, CalendarIcon, ChevronRightIcon, HomeIcon } from './Icons';
 
 // Ícone simples de envelope para o email
 const EmailIcon: React.FC<{ className?: string }> = ({ className }) => (
@@ -37,6 +37,7 @@ export const AddEventModal: React.FC<AddEventModalProps> = ({
   const [whatsapp, setWhatsapp] = useState('');
   const [email, setEmail] = useState('');
   const [course, setCourse] = useState('');
+  const [locationType, setLocationType] = useState<'interno' | 'externo'>('interno');
   const [eventLocation, setEventLocation] = useState(''); 
   const [paymentMethod, setPaymentMethod] = useState('Facilitado');
   const [dateStr, setDateStr] = useState('');
@@ -87,6 +88,7 @@ export const AddEventModal: React.FC<AddEventModalProps> = ({
           setWhatsapp(initialEvent.whatsapp || '');
           setEmail(initialEvent.email || '');
           setCourse(initialEvent.title || '');
+          setLocationType(initialEvent.locationType || 'interno');
           setEventLocation(initialEvent.eventLocation || ''); 
           setPaymentMethod(initialEvent.paymentMethod || 'Facilitado');
           if (initialEvent.date) {
@@ -109,6 +111,7 @@ export const AddEventModal: React.FC<AddEventModalProps> = ({
           setWhatsapp('');
           setEmail('');
           setCourse('');
+          setLocationType('interno');
           setEventLocation('');
           setPaymentMethod(isPalestraMode ? 'Pix' : 'Facilitado');
           setPaymentFrequency(isPalestraMode ? undefined : 'weekly');
@@ -133,6 +136,7 @@ export const AddEventModal: React.FC<AddEventModalProps> = ({
         if (selectedModel) {
             if (selectedModel.defaultTime) setTimeStr(selectedModel.defaultTime);
             if (selectedModel.defaultValue !== undefined) setValueStr(selectedModel.defaultValue.toString());
+            if (selectedModel.defaultLocation) setLocationType(selectedModel.defaultLocation);
             if (selectedModel.defaultDuration) {
                 const num = parseInt(selectedModel.defaultDuration);
                 setDurationStr(!isNaN(num) ? (num === 1 ? '1 dia' : `${num} dias`) : '1 dia');
@@ -168,6 +172,7 @@ export const AddEventModal: React.FC<AddEventModalProps> = ({
       student: studentName,
       whatsapp, 
       email,
+      locationType,
       eventLocation, 
       time: timeStr, 
       duration: durationStr,
@@ -234,13 +239,35 @@ export const AddEventModal: React.FC<AddEventModalProps> = ({
                         </div>
                     )}
                   </div>
+                  
                   <div>
                     <label className={`block text-[10px] font-black uppercase tracking-widest mb-1 ${isPalestraMode ? 'text-sky-500/70' : 'text-gray-400'}`}>Local do Evento</label>
-                    <div className="relative">
-                        <MapPinIcon className={`absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 ${isPalestraMode ? 'text-sky-300' : 'text-gray-300'}`} />
-                        <input type="text" value={eventLocation} onChange={(e) => setEventLocation(e.target.value)} className={`w-full pl-11 pr-4 py-3 rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-bg-dark text-gray-800 dark:text-white focus:ring-2 ${focusRingClass} outline-none transition-all font-bold`} placeholder="Ex: Studio, Endereço completo..." />
+                    <div className="grid grid-cols-2 gap-2 mb-2">
+                        <button 
+                            type="button" 
+                            onClick={() => setLocationType('interno')} 
+                            className={`flex items-center justify-center gap-2 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border
+                                ${locationType === 'interno' ? (isPalestraMode ? 'bg-sky-500 border-sky-500 text-white shadow-md' : 'bg-primary border-primary text-white shadow-md') : 'bg-gray-50 dark:bg-white/5 border-gray-100 dark:border-gray-800 text-gray-400'}`}
+                        >
+                            <HomeIcon className="w-4 h-4" /> Interno
+                        </button>
+                        <button 
+                            type="button" 
+                            onClick={() => setLocationType('externo')} 
+                            className={`flex items-center justify-center gap-2 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border
+                                ${locationType === 'externo' ? (isPalestraMode ? 'bg-sky-500 border-sky-500 text-white shadow-md' : 'bg-primary border-primary text-white shadow-md') : 'bg-gray-50 dark:bg-white/5 border-gray-100 dark:border-gray-800 text-gray-400'}`}
+                        >
+                            <MapPinIcon className="w-4 h-4" /> Externo
+                        </button>
                     </div>
+                    {locationType === 'externo' && (
+                        <div className="relative animate-fade-in">
+                            <MapPinIcon className={`absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 ${isPalestraMode ? 'text-sky-300' : 'text-gray-300'}`} />
+                            <input type="text" value={eventLocation} onChange={(e) => setEventLocation(e.target.value)} className={`w-full pl-11 pr-4 py-3 rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-bg-dark text-gray-800 dark:text-white focus:ring-2 ${focusRingClass} outline-none transition-all font-bold`} placeholder="Endereço completo..." />
+                        </div>
+                    )}
                   </div>
+
                   <div className="grid grid-cols-2 gap-3">
                       <div className="flex flex-col">
                           <label className={`block text-[10px] font-black uppercase tracking-widest mb-1 ${isPalestraMode ? 'text-sky-500/70' : 'text-gray-400'}`}>Data de Início</label>
