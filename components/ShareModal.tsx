@@ -11,7 +11,6 @@ interface ShareModalProps {
 
 export const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, event }) => {
   const [isCopied, setIsCopied] = useState(false);
-  const [locationMode, setLocationMode] = useState<'studio' | 'external'>('studio');
 
   const generateMessage = useMemo(() => {
     if (!event) return '';
@@ -25,28 +24,27 @@ export const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, event }
         dayOfWeek = dateObj.toLocaleDateString('pt-BR', { weekday: 'long' });
     }
 
-    // O sinal geralmente é o primeiro pagamento lançado
     const signalPaid = event.payments?.[0]?.amount || 0;
     const totalPaid = event.payments?.reduce((acc, p) => acc + (p.amount || 0), 0) || 0;
     const totalValue = event.value || 0;
     const remaining = Math.max(0, totalValue - totalPaid);
     const isPaid = remaining < 0.01;
 
-    const address = locationMode === 'studio' 
+    // Se for interno, usa o endereço do studio. Se for externo, usa o endereço cadastrado.
+    const address = event.locationType === 'interno' || !event.locationType
       ? "Rua Francisco Antônio Miranda, N°58 - Guarulhos SP. Sala N°6 (Interfone n° 6)"
       : (event.eventLocation || "Local a definir");
 
-    // Construção da Mensagem
-    let msg = `✨ *CONFIRMAÇÃO DE AGENDAMENTO* ✨\n\n`;
+    let msg = `*CONFIRMAÇÃO DE AGENDAMENTO*\n\n`;
     
-    msg += `📚 *CURSO:* ${event.title}\n`;
-    msg += `📅 *DATA:* ${formattedDate} (${dayOfWeek})\n`;
-    msg += `⏰ *HORÁRIO:* ${event.time}\n`;
-    msg += `⏳ *DURAÇÃO:* ${event.duration}\n\n`;
+    msg += `*CURSO:* ${event.title}\n`;
+    msg += `*DATA:* ${formattedDate} (${dayOfWeek})\n`;
+    msg += `*HORÁRIO:* ${event.time}\n`;
+    msg += `*DURAÇÃO:* ${event.duration}\n\n`;
 
-    msg += `📍 *LOCAL:* ${address}\n\n`;
+    msg += `*LOCAL:* ${address}\n\n`;
 
-    msg += `💰 *RESUMO FINANCEIRO*\n`;
+    msg += `*RESUMO FINANCEIRO*\n`;
     msg += `• Valor Total: R$ ${totalValue.toFixed(2).replace('.', ',')}\n`;
     msg += `• Sinal Pago: *R$ ${signalPaid.toFixed(2).replace('.', ',')}*\n`;
     msg += `• Método: ${event.paymentMethod}\n`;
@@ -54,12 +52,11 @@ export const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, event }
     if (!isPaid) {
         msg += `• Saldo Restante: *R$ ${remaining.toFixed(2).replace('.', ',')}*\n`;
     } else {
-        msg += `• Status: *PAGAMENTO QUITADO* ✅\n`;
+        msg += `• Status: *PAGAMENTO QUITADO*\n`;
     }
 
-    // Adiciona Cronograma se for Facilitado
     if (event.paymentFrequency && event.createdAt && !isPaid) {
-        msg += `\n📅 *PAGAMENTO FACILITADO (${event.paymentFrequency === 'weekly' ? 'Semanal' : 'Quinzenal'})*\n`;
+        msg += `\n*PAGAMENTO FACILITADO (${event.paymentFrequency === 'weekly' ? 'Semanal' : 'Quinzenal'})*\n`;
         const startDate = new Date(event.createdAt);
         const interval = event.paymentFrequency === 'weekly' ? 7 : 15;
         for (let i = 1; i <= 4; i++) {
@@ -69,10 +66,10 @@ export const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, event }
         }
     }
 
-    msg += `\nQualquer dúvida, estou à disposição! 🌸`;
+    msg += `\nQualquer dúvida, estou à disposição!`;
 
     return msg;
-  }, [event, locationMode]);
+  }, [event]);
 
   if (!isOpen || !event) return null;
 
@@ -117,22 +114,14 @@ export const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, event }
                   </h2>
               </div>
 
-              {/* Seletor de Localização */}
-              <div className="w-full grid grid-cols-2 gap-2 mb-6 p-1 bg-gray-100 dark:bg-white/5 rounded-2xl border border-gray-100 dark:border-gray-800">
-                  <button 
-                    onClick={() => setLocationMode('studio')}
-                    className={`flex items-center justify-center gap-2 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all
-                        ${locationMode === 'studio' ? 'bg-primary text-white shadow-md' : 'text-gray-400'}`}
-                  >
-                      <HomeIcon className="w-4 h-4" /> Meu Studio
-                  </button>
-                  <button 
-                    onClick={() => setLocationMode('external')}
-                    className={`flex items-center justify-center gap-2 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all
-                        ${locationMode === 'external' ? 'bg-primary text-white shadow-md' : 'text-gray-400'}`}
-                  >
-                      <MapPinIcon className="w-4 h-4" /> Local Externo
-                  </button>
+              <div className="w-full flex items-center gap-2 mb-6 p-4 rounded-xl bg-gray-50 dark:bg-white/5 border border-gray-100 dark:border-gray-800">
+                  <div className={`p-2 rounded-lg ${event.locationType === 'externo' ? 'bg-orange-100 text-orange-600' : 'bg-blue-100 text-primary'}`}>
+                      {event.locationType === 'externo' ? <MapPinIcon className="w-5 h-5" /> : <HomeIcon className="w-5 h-5" />}
+                  </div>
+                  <div>
+                      <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Local configurado</p>
+                      <p className="text-sm font-bold text-gray-800 dark:text-white uppercase">{event.locationType === 'externo' ? 'Externo' : 'Interno'}</p>
+                  </div>
               </div>
 
               <div className="w-full bg-gray-50 dark:bg-bg-dark border border-gray-200 dark:border-gray-700 rounded-2xl p-4 mb-6 text-left shadow-inner">
