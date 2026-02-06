@@ -1,6 +1,7 @@
+
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { CalendarEvent, CourseType, MaterialItem, LectureModel } from '../types';
-import { TrashIcon, ShareIcon, PencilIcon, AlertCircleIcon, PlusIcon, CalendarIcon, MapPinIcon, WhatsAppIcon, ClockIcon, BoxIcon, SquareIcon, CheckSquareIcon, CheckIcon, XIcon, DollarSignIcon } from './Icons';
+import { TrashIcon, ShareIcon, PencilIcon, AlertCircleIcon, PlusIcon, CalendarIcon, MapPinIcon, WhatsAppIcon, ClockIcon, BoxIcon, SquareIcon, CheckSquareIcon, CheckIcon, XIcon, DollarSignIcon, MailIcon } from './Icons';
 import { ConfirmationModal } from './ConfirmationModal';
 
 interface EventListProps {
@@ -43,6 +44,7 @@ export const EventList: React.FC<EventListProps> = ({
   const [quickMaterialName, setQuickMaterialName] = useState<{ [key: string]: string }>({});
   const [quickMaterialCost, setQuickMaterialCost] = useState<{ [key: string]: string }>({});
   const [removeConfirm, setRemoveConfirm] = useState<{ isOpen: boolean; eventId: string; materialId: string } | null>(null);
+  const [copiedEmailId, setCopiedEmailId] = useState<string | null>(null);
   
   const eventRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
 
@@ -52,6 +54,12 @@ export const EventList: React.FC<EventListProps> = ({
            evt.title === 'Palestra' || 
            evt.title === 'Workshop' || 
            lectureModels.some(m => m.name === evt.title);
+  };
+
+  const handleCopyEmail = (email: string, eventId: string) => {
+    navigator.clipboard.writeText(email);
+    setCopiedEmailId(eventId);
+    setTimeout(() => setCopiedEmailId(null), 2000);
   };
 
   // Efeito para rolar até o dia selecionado no calendário
@@ -141,7 +149,6 @@ export const EventList: React.FC<EventListProps> = ({
             const shortDate = d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
             deadlineDisplay = `${capitalizedWeekday} - ${shortDate}`;
 
-            // Lógica para piscar 1 dia antes ou no dia
             const deadlineDate = new Date(evt.paymentDueDate);
             deadlineDate.setHours(0,0,0,0);
             const oneDayBefore = new Date(deadlineDate);
@@ -152,9 +159,20 @@ export const EventList: React.FC<EventListProps> = ({
             }
           }
 
-          // Busca configuração do curso para os atalhos
           const courseConfig = courseTypes.find(c => c.name === evt.title);
           const courseShortcuts = courseConfig?.defaultMaterials?.map(m => m.name) || [];
+
+          // Cálculo do cronograma de pagamento
+          const scheduleDates = [];
+          if (!isPalestra && evt.paymentFrequency && evt.createdAt) {
+            const startDate = new Date(evt.createdAt);
+            const interval = evt.paymentFrequency === 'weekly' ? 7 : 15;
+            for (let i = 1; i <= 4; i++) {
+              const d = new Date(startDate);
+              d.setDate(startDate.getDate() + (interval * i));
+              scheduleDates.push(d);
+            }
+          }
 
           return (
             <div 
@@ -164,12 +182,12 @@ export const EventList: React.FC<EventListProps> = ({
                  ${isCloseOrOverdue ? 'ring-2 ring-red-600 dark:ring-red-50' : (isPalestra ? 'border-sky-200 shadow-sky-500/10' : '')}
               `}
             >
-              <div className={`${isPalestra ? 'bg-sky-500' : 'bg-[#1A4373]'} py-3 px-4 flex items-center justify-center relative min-h-[50px]`}>
+              <div className={`${isPalestra ? 'bg-sky-500' : 'bg-[#1A4373]'} py-3 px-4 flex flex-col items-center justify-center relative min-h-[50px]`}>
                   <h3 className="text-xl font-black text-white text-center leading-tight truncate px-8 uppercase tracking-tighter">
                     {evt.student || (isPalestra ? 'Evento Corporativo' : 'Aluna sem nome')}
                   </h3>
                   {isNearDeadline && (
-                    <div className="absolute right-4 animate-soft-blink">
+                    <div className="absolute right-4 animate-soft-blink top-1/2 -translate-y-1/2">
                       <AlertCircleIcon className="w-6 h-6 text-red-500" />
                     </div>
                   )}
@@ -211,6 +229,23 @@ export const EventList: React.FC<EventListProps> = ({
                      </div>
                  </div>
 
+                 {/* PAGAMENTO (APENAS FACILITADO) */}
+                 {!isPalestra && scheduleDates.length > 0 && !isPaid && (
+                   <div className="w-full bg-blue-50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/30 rounded-lg p-3 mb-2 text-left">
+                      <p className="text-[10px] font-black uppercase text-primary dark:text-blue-300 mb-2 flex items-center gap-1">
+                        <CalendarIcon className="w-3 h-3" /> PAGAMENTO {evt.paymentFrequency === 'weekly' ? 'Semanal' : 'Quinzenal'}
+                      </p>
+                      <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                        {scheduleDates.map((d, i) => (
+                          <div key={i} className="flex justify-between items-center text-[10px] text-gray-600 dark:text-gray-400">
+                             <span className="font-bold">Parcela {i+1}:</span>
+                             <span className="font-black text-primary dark:text-blue-300">{d.toLocaleDateString('pt-BR', {day:'2-digit', month:'2-digit'})}</span>
+                          </div>
+                        ))}
+                      </div>
+                   </div>
+                 )}
+
                  {/* CHECKLIST DE MATERIAIS / GASTOS */}
                  <div className={`w-full rounded-lg p-3 mb-2 text-left border ${isPalestra ? 'bg-sky-50 dark:bg-sky-900/10 border-sky-100 dark:border-sky-900/30' : 'bg-blue-50 dark:bg-blue-900/10 border-blue-100 dark:border-blue-900/30'}`}>
                     <div className="flex justify-between items-center mb-2">
@@ -223,7 +258,6 @@ export const EventList: React.FC<EventListProps> = ({
                         )}
                     </div>
                     
-                    {/* Se for palestra e o abatimento estiver desligado, mostramos o total aqui em cima para controle */}
                     {isPalestra && !evt.abateExpenses && (
                         <div className="mb-2 flex justify-end">
                              <span className="text-[10px] font-black text-red-500">Total: R$ {totalMaterialCost.toFixed(2).replace('.', ',')}</span>
@@ -436,6 +470,15 @@ export const EventList: React.FC<EventListProps> = ({
                       title="Compartilhar"
                     >
                       <ShareIcon className="w-5 h-5" />
+                    </button>
+                  )}
+                  {evt.email && (
+                    <button 
+                      onClick={() => handleCopyEmail(evt.email!, evt.id)}
+                      className={`flex-1 py-3 flex items-center justify-center transition-all ${copiedEmailId === evt.id ? 'text-emerald-500' : 'text-gray-400 hover:text-primary'}`}
+                      title="Copiar E-mail"
+                    >
+                      {copiedEmailId === evt.id ? <CheckIcon className="w-5 h-5" /> : <MailIcon className="w-5 h-5" />}
                     </button>
                   )}
                   <button onClick={() => onEditEvent(evt)} className={`flex-1 py-3 flex items-center justify-center text-gray-400 ${isPalestra ? 'hover:text-sky-500' : 'hover:text-blue-500'} transition-all`} title="Editar"><PencilIcon className="w-5 h-5" /></button>
