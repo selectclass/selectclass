@@ -52,7 +52,7 @@ export const FinancialScreen: React.FC<FinancialScreenProps> = ({ events, annual
   };
 
   const currentPeriodMetrics = useMemo(() => {
-    const filtered = events.filter(e => {
+    const filteredEvents = events.filter(e => {
         if (!e.date) return false; 
         const eDate = new Date(e.date);
         const matchYear = eDate.getFullYear() === selectedYear;
@@ -63,22 +63,37 @@ export const FinancialScreen: React.FC<FinancialScreenProps> = ({ events, annual
         return matchYear && matchMonth && matchDay && matchType;
     });
 
-    const gross = filtered.reduce((acc, curr) => {
+    const grossReceived = filteredEvents.reduce((acc, curr) => {
         const paymentsSum = curr.payments?.reduce((pAcc, p) => pAcc + parseCurrency(p.amount), 0) || 0;
+        // Fallback: se o status for pago mas não houver registros detalhados (legado)
         if (curr.paymentStatus === 'paid' && paymentsSum === 0) return acc + parseCurrency(curr.value);
         return acc + paymentsSum;
     }, 0);
 
-    const materialsCost = filtered.reduce((acc, event) => {
+    const manualExpenses = expenses
+        .filter(exp => {
+            const d = new Date(exp.date);
+            const matchesDate = d.getFullYear() === selectedYear && 
+                               (selectedMonth === 'all' || d.getMonth() === selectedMonth) && 
+                               (selectedDay === 'all' || d.getDate() === Number(selectedDay));
+            return matchesDate && (exp.category === filterType);
+        })
+        .reduce((a, c) => a + parseCurrency(c.amount), 0);
+
+    const checklistExpenses = filteredEvents.reduce((acc, event) => {
         const matCost = (event.materials || []).reduce((mAcc, m) => m.checked ? mAcc + parseCurrency(m.cost) : mAcc, 0);
         return acc + matCost;
     }, 0);
 
-    return { gross, net: gross - materialsCost, expenses: materialsCost };
-  }, [events, selectedYear, selectedMonth, selectedDay, filterType, courseTypes, lectureModels]);
+    const totalExpenses = manualExpenses + checklistExpenses;
+
+    return { gross: grossReceived, net: grossReceived - totalExpenses, expenses: totalExpenses };
+  }, [events, expenses, selectedYear, selectedMonth, selectedDay, filterType, courseTypes, lectureModels]);
 
   const annualChartData = useMemo(() => {
       const data = Array(12).fill(0).map(() => ({ gross: 0, net: 0 }));
+      
+      // Recebimentos por mês
       events.forEach(e => {
           if (!e.date) return;
           const d = new Date(e.date);
@@ -86,16 +101,28 @@ export const FinancialScreen: React.FC<FinancialScreenProps> = ({ events, annual
           const isPal = checkIfPalestra(e);
           const matchType = filterType === 'palestras' ? isPal : !isPal;
           if (!matchType) return;
+          
           const mIndex = d.getMonth();
           const paymentsSum = e.payments?.reduce((pAcc, p) => pAcc + parseCurrency(p.amount), 0) || 0;
           const val = (e.paymentStatus === 'paid' && paymentsSum === 0) ? parseCurrency(e.value) : paymentsSum;
           data[mIndex].gross += val;
+          
           const matCost = (e.materials || []).reduce((mAcc, m) => m.checked ? mAcc + parseCurrency(m.cost) : mAcc, 0);
           data[mIndex].net -= matCost;
       });
+
+      // Despesas manuais por mês
+      expenses.forEach(exp => {
+        const d = new Date(exp.date);
+        if (d.getFullYear() !== selectedYear) return;
+        if (exp.category !== filterType) return;
+        const mIndex = d.getMonth();
+        data[mIndex].net -= parseCurrency(exp.amount);
+      });
+
       for(let i=0; i<12; i++) data[i].net += data[i].gross;
       return data;
-  }, [events, selectedYear, filterType, courseTypes, lectureModels]);
+  }, [events, expenses, selectedYear, filterType, courseTypes, lectureModels]);
 
   const maxChartValue = Math.max(...annualChartData.map(d => d.gross), 100);
 
@@ -183,7 +210,7 @@ export const FinancialScreen: React.FC<FinancialScreenProps> = ({ events, annual
                     <BarChartIcon className="w-5 h-5" />
                </div>
                <div>
-                   <h3 className="font-black text-gray-800 dark:text-white text-base uppercase tracking-tight">{filterType === 'palestras' ? 'Cachês de Palestras' : 'Rendimento Cursos'}</h3>
+                   <h3 className="font-black text-gray-800 dark:text-white text-base uppercase tracking-tight">{filterType === 'palestras' ? 'Recebimentos Palestras' : 'Recebimentos Cursos'}</h3>
                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Ano de {selectedYear}</p>
                </div>
           </div>
@@ -224,14 +251,14 @@ export const FinancialScreen: React.FC<FinancialScreenProps> = ({ events, annual
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
           <div className={`relative w-full rounded-2xl p-5 shadow-lg text-white ${filterType === 'palestras' ? 'bg-sky-500 shadow-sky-500/20' : 'bg-primary shadow-primary/20'}`}>
                 <div className="flex justify-between items-start mb-1">
-                    <span className="text-white/70 text-[10px] font-black uppercase tracking-widest">{filterType === 'palestras' ? 'Cachê Total' : 'Bruto Recebido'}</span>
+                    <span className="text-white/70 text-[10px] font-black uppercase tracking-widest">{filterType === 'palestras' ? 'Cachê Recebido' : 'Bruto Recebido'}</span>
                     <DollarSignIcon className="w-4 h-4 text-white" />
                 </div>
                 <p className="text-2xl font-black tracking-tighter">R$ {currentPeriodMetrics.gross.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
           </div>
           <div className={`relative w-full rounded-2xl p-5 shadow-lg text-white transition-colors duration-300 ${isNetNegative ? 'bg-red-600 shadow-red-500/20' : 'bg-emerald-600 shadow-emerald-500/20'}`}>
                 <div className="flex justify-between items-start mb-1">
-                    <span className={`text-[10px] font-black uppercase tracking-widest ${isNetNegative ? 'text-red-200' : 'text-emerald-200'}`}>Lucro Líquido</span>
+                    <span className={`text-[10px] font-black uppercase tracking-widest ${isNetNegative ? 'text-red-200' : 'text-emerald-200'}`}>Lucro Líquido Real</span>
                     <TrendingDownIcon className="w-4 h-4 text-white" />
                 </div>
                 <p className="text-2xl font-black tracking-tighter">R$ {currentPeriodMetrics.net.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
