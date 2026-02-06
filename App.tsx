@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { AppView, CalendarEvent, CourseType, Student, Expense, MaterialItem, LectureModel } from './types';
 import { Drawer } from './components/Drawer';
@@ -289,21 +290,40 @@ function App() {
             return dashboardTab === 'palestras' ? isPal : !isPal;
         });
 
-        const totalValue = dashboardFilteredEvents.reduce((a, c) => a + (c.value || 0), 0);
+        const totalFaturamento = dashboardFilteredEvents.reduce((a, c) => a + (c.value || 0), 0);
+        
+        // CORREÇÃO: Faturamento Real (Recebido) para o cálculo do Líquido
+        const totalReceived = dashboardFilteredEvents.reduce((acc, event) => {
+            const paymentsSum = event.payments?.reduce((s, p) => s + (parseCurrency(p.amount) || 0), 0) || 0;
+            return acc + paymentsSum;
+        }, 0);
+
         const totalPending = dashboardFilteredEvents.reduce((acc, event) => {
             const courseValue = event.value || 0;
-            const paymentsReceived = event.payments?.reduce((s, p) => s + p.amount, 0) || 0;
+            const paymentsReceived = event.payments?.reduce((s, p) => s + (parseCurrency(p.amount) || 0), 0) || 0;
             const pending = Math.max(0, courseValue - paymentsReceived);
             return acc + pending;
         }, 0);
 
-        const totalLiquid = dashboardFilteredEvents.reduce((acc, event) => {
-            const isPal = (event.title === 'Palestra' || event.title === 'Workshop' || lectureModels.some(m => m.name === event.title));
-            const courseValue = event.value || 0;
-            const totalMaterialCost = (event.materials || []).filter(m => m.checked).reduce((s, m) => s + (parseCurrency(m.cost) || 0), 0);
-            const eventNet = isPal ? (event.abateExpenses ? (courseValue - totalMaterialCost) : courseValue) : (courseValue - totalMaterialCost);
-            return acc + eventNet;
+        // Despesas fixas (do módulo despesas) que pertencem a essa categoria (cursos/palestras)
+        const manualExpensesSum = expenses
+            .filter(exp => {
+                const d = new Date(exp.date);
+                const isSameMonth = d.getMonth() === dashboardDate.getMonth() && d.getFullYear() === dashboardDate.getFullYear();
+                return isSameMonth && (exp.category === (dashboardTab === 'palestras' ? 'palestras' : 'cursos'));
+            })
+            .reduce((a, c) => a + (parseCurrency(c.amount) || 0), 0);
+
+        // Gastos de checklist dos eventos do mês atual
+        const checklistExpensesSum = dashboardFilteredEvents.reduce((acc, event) => {
+            const matCost = (event.materials || []).filter(m => m.checked).reduce((s, m) => s + (parseCurrency(m.cost) || 0), 0);
+            return acc + matCost;
         }, 0);
+
+        const totalExpenses = manualExpensesSum + checklistExpensesSum;
+        
+        // CORREÇÃO: Líquido = Recebido - Despesas
+        const totalLiquid = totalReceived - totalExpenses;
 
         return (
           <>
@@ -357,10 +377,11 @@ function App() {
                         <button onClick={() => setShowDashboardRevenue(!showDashboardRevenue)} className="text-gray-400 hover:text-primary transition-colors p-2">{showDashboardRevenue ? <EyeOffIcon className="w-5 h-5" /> : <EyeIcon className="w-5 h-5" />}</button>
                     </div>
                     <div className="flex justify-center mb-5"><div className="bg-gray-100 dark:bg-white/5 px-4 py-2 rounded-full font-black text-xs uppercase text-gray-600 dark:text-gray-300">{dashboardDate.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }).toUpperCase()}</div></div>
-                    <div className="grid grid-cols-3 gap-2 divide-x divide-gray-100 pt-1 text-center">
-                        <div><p className="text-[9px] font-black text-gray-400 uppercase mb-1">Cachê/Faturamento</p><p className="font-black text-gray-800 dark:text-white text-sm">{showDashboardRevenue ? `R$ ${totalValue.toLocaleString('pt-BR')}` : 'R$ ---'}</p></div>
-                        <div className="px-1"><p className="text-[9px] font-black text-gray-400 uppercase mb-1">Pendente</p><p className="font-black text-red-500 text-sm">{showDashboardRevenue ? `R$ ${totalPending.toLocaleString('pt-BR')}` : 'R$ ---'}</p></div>
-                        <div><p className="text-[9px] font-black text-gray-400 uppercase mb-1">Líquido</p><p className="font-black text-emerald-500 text-sm">{showDashboardRevenue ? `R$ ${totalLiquid.toLocaleString('pt-BR')}` : 'R$ ---'}</p></div>
+                    <div className="grid grid-cols-4 gap-1 divide-x divide-gray-100 pt-1 text-center">
+                        <div className="px-1"><p className="text-[8px] font-black text-gray-400 uppercase mb-1 truncate">Faturamento</p><p className="font-black text-gray-800 dark:text-white text-[11px]">{showDashboardRevenue ? `R$ ${totalFaturamento.toLocaleString('pt-BR')}` : 'R$ ---'}</p></div>
+                        <div className="px-1"><p className="text-[8px] font-black text-gray-400 uppercase mb-1 truncate">Pendente</p><p className="font-black text-red-500 text-[11px]">{showDashboardRevenue ? `R$ ${totalPending.toLocaleString('pt-BR')}` : 'R$ ---'}</p></div>
+                        <div className="px-1"><p className="text-[8px] font-black text-gray-400 uppercase mb-1 truncate">Despesas</p><p className="font-black text-red-600 text-[11px]">{showDashboardRevenue ? `R$ ${totalExpenses.toLocaleString('pt-BR')}` : 'R$ ---'}</p></div>
+                        <div className="px-1"><p className="text-[8px] font-black text-gray-400 uppercase mb-1 truncate">Líquido</p><p className={`font-black text-[11px] ${totalLiquid >= 0 ? 'text-emerald-500' : 'text-red-600'}`}>{showDashboardRevenue ? `R$ ${totalLiquid.toLocaleString('pt-BR')}` : 'R$ ---'}</p></div>
                     </div>
                 </div>
             </div>
