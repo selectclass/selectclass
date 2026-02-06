@@ -41,6 +41,7 @@ export interface CourseType {
   defaultTime?: string;
   defaultDuration?: string;
   defaultMaterials?: MaterialDef[];
+  defaultLocation?: 'interno' | 'externo';
   order?: number;
 }
 
@@ -78,6 +79,7 @@ export interface CalendarEvent {
   email?: string;
   city?: string;
   state?: string;
+  locationType?: 'interno' | 'externo';
   eventLocation?: string;
   value?: number;
   paymentMethod?: string;
