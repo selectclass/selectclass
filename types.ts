@@ -1,3 +1,4 @@
+
 export enum AppView {
   HOME = 'HOME',
   FINANCIAL = 'FINANCIAL',
@@ -74,6 +75,7 @@ export interface CalendarEvent {
   type: 'class' | 'meeting' | 'other';
   student?: string;
   whatsapp?: string;
+  email?: string;
   city?: string;
   state?: string;
   eventLocation?: string;
@@ -86,6 +88,8 @@ export interface CalendarEvent {
   date?: Date; 
   materials?: MaterialItem[]; 
   abateExpenses?: boolean;
+  paymentFrequency?: 'weekly' | 'biweekly';
+  createdAt?: Date;
 }
 
 export interface DayData {
