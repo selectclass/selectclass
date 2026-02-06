@@ -1,6 +1,15 @@
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { CalendarEvent, CourseType, PaymentRecord } from '../types';
 import { XIcon, WhatsAppIcon, CheckIcon, MapPinIcon, DollarSignIcon, TrashIcon, ClockIcon, CalendarIcon, ChevronRightIcon } from './Icons';
+
+// Ícone simples de envelope para o email
+const EmailIcon: React.FC<{ className?: string }> = ({ className }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <rect width="20" height="16" x="2" y="4" rx="2" />
+    <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
+  </svg>
+);
 
 interface AddEventModalProps {
   isOpen: boolean;
@@ -26,6 +35,7 @@ export const AddEventModal: React.FC<AddEventModalProps> = ({
 }) => {
   const [studentName, setStudentName] = useState('');
   const [whatsapp, setWhatsapp] = useState('');
+  const [email, setEmail] = useState('');
   const [course, setCourse] = useState('');
   const [eventLocation, setEventLocation] = useState(''); 
   const [paymentMethod, setPaymentMethod] = useState('Facilitado');
@@ -35,6 +45,7 @@ export const AddEventModal: React.FC<AddEventModalProps> = ({
   const [valueStr, setValueStr] = useState('');
   const [depositStr, setDepositStr] = useState(''); 
   const [deadlineDays, setDeadlineDays] = useState<number>(5);
+  const [paymentFrequency, setPaymentFrequency] = useState<'weekly' | 'biweekly' | undefined>(undefined);
   const [localPayments, setLocalPayments] = useState<PaymentRecord[]>([]);
   const [showCourseDropdown, setShowCourseDropdown] = useState(false);
   const [showDurationDropdown, setShowDurationDropdown] = useState(false);
@@ -74,6 +85,7 @@ export const AddEventModal: React.FC<AddEventModalProps> = ({
       if (initialEvent) {
           setStudentName(initialEvent.student || '');
           setWhatsapp(initialEvent.whatsapp || '');
+          setEmail(initialEvent.email || '');
           setCourse(initialEvent.title || '');
           setEventLocation(initialEvent.eventLocation || ''); 
           setPaymentMethod(initialEvent.paymentMethod || 'Facilitado');
@@ -87,6 +99,7 @@ export const AddEventModal: React.FC<AddEventModalProps> = ({
           setValueStr(initialEvent.value?.toString() || '');
           setDeadlineDays(initialEvent.paymentDeadlineDays || 5);
           setLocalPayments(initialEvent.payments || []);
+          setPaymentFrequency(initialEvent.paymentFrequency);
           setDepositStr('');
           setPalestraPaymentType(initialEvent.paymentStatus === 'paid' ? 'TOTAL' : 'SINAL');
       } else if (justOpened) {
@@ -94,9 +107,11 @@ export const AddEventModal: React.FC<AddEventModalProps> = ({
           setDateStr(isoDate);
           setStudentName('');
           setWhatsapp('');
+          setEmail('');
           setCourse('');
           setEventLocation('');
           setPaymentMethod(isPalestraMode ? 'Pix' : 'Facilitado');
+          setPaymentFrequency(isPalestraMode ? undefined : 'weekly');
           setTimeStr('09:00');
           setDurationStr('1 dia'); 
           setValueStr('');
@@ -152,6 +167,7 @@ export const AddEventModal: React.FC<AddEventModalProps> = ({
       title: course,
       student: studentName,
       whatsapp, 
+      email,
       eventLocation, 
       time: timeStr, 
       duration: durationStr,
@@ -161,8 +177,10 @@ export const AddEventModal: React.FC<AddEventModalProps> = ({
       paymentStatus: finalIsPaid ? 'paid' : 'pending',
       paymentDueDate: isPalestraMode ? undefined : paymentDueDate,
       paymentDeadlineDays: isPalestraMode ? undefined : deadlineDays,
+      paymentFrequency: paymentMethod === 'Facilitado' ? paymentFrequency : undefined,
       payments: finalPayments,
-      materials: initialEvent?.materials
+      materials: initialEvent?.materials,
+      createdAt: initialEvent?.createdAt || new Date()
     }, baseDate);
   };
 
@@ -191,6 +209,13 @@ export const AddEventModal: React.FC<AddEventModalProps> = ({
                     <div className="relative">
                         <WhatsAppIcon className={`absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 ${isPalestraMode ? 'text-sky-300' : 'text-gray-300'}`} />
                         <input type="tel" value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} className={`w-full pl-11 pr-4 py-3 rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-bg-dark text-gray-800 dark:text-white focus:ring-2 ${focusRingClass} outline-none transition-all font-bold`} placeholder="(00) 00000-0000" />
+                    </div>
+                  </div>
+                  <div>
+                    <label className={`block text-[10px] font-black uppercase tracking-widest mb-1 ${isPalestraMode ? 'text-sky-500/70' : 'text-gray-400'}`}>E-mail</label>
+                    <div className="relative">
+                        <EmailIcon className={`absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 ${isPalestraMode ? 'text-sky-300' : 'text-gray-300'}`} />
+                        <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className={`w-full pl-11 pr-4 py-3 rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-bg-dark text-gray-800 dark:text-white focus:ring-2 ${focusRingClass} outline-none transition-all font-bold`} placeholder="exemplo@email.com" />
                     </div>
                   </div>
                   <div className="relative" ref={dropdownRef}>
@@ -279,24 +304,7 @@ export const AddEventModal: React.FC<AddEventModalProps> = ({
                       </div>
                   ) : (
                       <>
-                        {paymentMethod === 'Facilitado' && (
-                          <div className="pt-1">
-                              <label className="block text-[10px] font-black text-primary dark:text-blue-300 uppercase tracking-widest mb-3">Quitar até quantos dias antes?</label>
-                              <div className="flex gap-4 mb-3">
-                                  {[5, 10, 15].map((d) => (
-                                      <button key={d} type="button" onClick={() => setDeadlineDays(d)} className={`w-11 h-11 rounded-full font-black text-xs transition-all border-2 ${deadlineDays === d ? 'bg-primary border-primary text-white shadow-lg' : 'bg-white dark:bg-bg-dark border-gray-100 dark:border-gray-700 text-gray-400'}`} > {d} </button>
-                                  ))}
-                              </div>
-                          </div>
-                        )}
                         <div className="grid grid-cols-2 gap-3 pt-1">
-                            <div>
-                                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">{paymentMethod === 'Facilitado' ? 'SINAL RECEBIDO' : 'VALOR RECEBIDO'}</label>
-                                <div className="relative">
-                                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 font-bold text-xs">R$</span>
-                                    <input type="number" step="0.01" value={depositStr} onChange={(e) => setDepositStr(e.target.value)} className={`w-full pl-10 pr-4 py-3 rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-bg-dark text-gray-800 dark:text-white focus:ring-2 ${focusRingClass} outline-none transition-all font-bold`} placeholder="0,00" />
-                                </div>
-                            </div>
                             <div>
                                 <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Método</label>
                                 <select value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)} className={`w-full px-4 py-3 rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-bg-dark text-gray-800 dark:text-white focus:ring-2 ${focusRingClass} outline-none appearance-none transition-all font-bold`} >
@@ -306,7 +314,31 @@ export const AddEventModal: React.FC<AddEventModalProps> = ({
                                     <option value="Dinheiro">Dinheiro</option>
                                 </select>
                             </div>
+                            <div>
+                                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">{paymentMethod === 'Facilitado' ? 'SINAL RECEBIDO' : 'VALOR RECEBIDO'}</label>
+                                <div className="relative">
+                                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 font-bold text-xs">R$</span>
+                                    <input type="number" step="0.01" value={depositStr} onChange={(e) => setDepositStr(e.target.value)} className={`w-full pl-10 pr-4 py-3 rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-bg-dark text-gray-800 dark:text-white focus:ring-2 ${focusRingClass} outline-none transition-all font-bold`} placeholder="0,00" />
+                                </div>
+                            </div>
                         </div>
+
+                        {paymentMethod === 'Facilitado' && (
+                          <div className="pt-2 animate-fade-in">
+                              <label className="block text-[10px] font-black text-primary dark:text-blue-300 uppercase tracking-widest mb-2">Frequência de Pagamento</label>
+                              <div className="grid grid-cols-2 gap-2">
+                                  <button type="button" onClick={() => setPaymentFrequency('weekly')} className={`py-2.5 rounded-xl text-[10px] font-black uppercase transition-all border ${paymentFrequency === 'weekly' ? 'bg-primary border-primary text-white shadow-lg' : 'bg-gray-50 border-gray-100 text-gray-400'}`}>Semanal</button>
+                                  <button type="button" onClick={() => setPaymentFrequency('biweekly')} className={`py-2.5 rounded-xl text-[10px] font-black uppercase transition-all border ${paymentFrequency === 'biweekly' ? 'bg-primary border-primary text-white shadow-lg' : 'bg-gray-50 border-gray-100 text-gray-400'}`}>Quinzenal</button>
+                              </div>
+                              
+                              <label className="block text-[10px] font-black text-primary dark:text-blue-300 uppercase tracking-widest mb-2 mt-4">Quitar até quantos dias antes?</label>
+                              <div className="flex gap-4 mb-1">
+                                  {[5, 10, 15].map((d) => (
+                                      <button key={d} type="button" onClick={() => setDeadlineDays(d)} className={`w-11 h-11 rounded-full font-black text-xs transition-all border-2 ${deadlineDays === d ? 'bg-primary border-primary text-white shadow-lg' : 'bg-white dark:bg-bg-dark border-gray-100 dark:border-gray-700 text-gray-400'}`} > {d} </button>
+                                  ))}
+                              </div>
+                          </div>
+                        )}
                       </>
                   )}
               </div>
