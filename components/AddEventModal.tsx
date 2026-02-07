@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { CalendarEvent, CourseType, PaymentRecord } from '../types';
-import { XIcon, WhatsAppIcon, CheckIcon, MapPinIcon, DollarSignIcon, TrashIcon, ClockIcon, CalendarIcon, ChevronRightIcon, HomeIcon } from './Icons';
+import { CalendarEvent, CourseType, PaymentRecord, Student } from '../types';
+import { XIcon, WhatsAppIcon, CheckIcon, MapPinIcon, DollarSignIcon, TrashIcon, ClockIcon, CalendarIcon, ChevronRightIcon, HomeIcon, UserIcon } from './Icons';
 
 // Ícone simples de envelope para o email
 const EmailIcon: React.FC<{ className?: string }> = ({ className }) => (
@@ -21,6 +21,7 @@ interface AddEventModalProps {
   forcedModel?: 'Curso' | 'Palestra';
   lectureModels?: string[];
   allEvents?: CalendarEvent[];
+  students?: Student[];
 }
 
 export const AddEventModal: React.FC<AddEventModalProps> = ({ 
@@ -31,7 +32,8 @@ export const AddEventModal: React.FC<AddEventModalProps> = ({
   initialDate, 
   initialEvent, 
   forcedModel, 
-  lectureModels = [] 
+  lectureModels = [],
+  students = []
 }) => {
   const [studentName, setStudentName] = useState('');
   const [whatsapp, setWhatsapp] = useState('');
@@ -50,10 +52,12 @@ export const AddEventModal: React.FC<AddEventModalProps> = ({
   const [localPayments, setLocalPayments] = useState<PaymentRecord[]>([]);
   const [showCourseDropdown, setShowCourseDropdown] = useState(false);
   const [showDurationDropdown, setShowDurationDropdown] = useState(false);
+  const [showStudentSuggestions, setShowStudentSuggestions] = useState(false);
   const [palestraPaymentType, setPalestraPaymentType] = useState<'SINAL' | 'TOTAL'>('SINAL');
   
   const dropdownRef = useRef<HTMLDivElement>(null);
   const durationDropdownRef = useRef<HTMLDivElement>(null);
+  const studentDropdownRef = useRef<HTMLDivElement>(null);
   const prevOpenRef = useRef(false);
 
   const isPalestraMode = useMemo(() => {
@@ -66,6 +70,12 @@ export const AddEventModal: React.FC<AddEventModalProps> = ({
   const totalPaid = (localPayments.reduce((acc, p) => acc + (typeof p.amount === 'number' ? p.amount : parseFloat(String(p.amount))), 0)) + depositValue;
   const isPaid = totalPaid >= (totalValue - 0.01) && totalValue > 0;
 
+  // Filtragem de alunas para sugestão
+  const studentSuggestions = useMemo(() => {
+    if (!studentName || studentName.length < 2 || isPalestraMode) return [];
+    return students.filter(s => s.name.toLowerCase().includes(studentName.toLowerCase())).slice(0, 5);
+  }, [studentName, students, isPalestraMode]);
+
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
@@ -73,6 +83,9 @@ export const AddEventModal: React.FC<AddEventModalProps> = ({
       }
       if (durationDropdownRef.current && !durationDropdownRef.current.contains(event.target as Node)) {
         setShowDurationDropdown(false);
+      }
+      if (studentDropdownRef.current && !studentDropdownRef.current.contains(event.target as Node)) {
+        setShowStudentSuggestions(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -145,6 +158,13 @@ export const AddEventModal: React.FC<AddEventModalProps> = ({
     }
   };
 
+  const selectStudent = (student: Student) => {
+    setStudentName(student.name);
+    setWhatsapp(student.phone || '');
+    setEmail(student.email || '');
+    setShowStudentSuggestions(false);
+  };
+
   const selectDuration = (days: number) => {
     setDurationStr(`${days} ${days === 1 ? 'dia' : 'dias'}`);
     setShowDurationDropdown(false);
@@ -205,9 +225,36 @@ export const AddEventModal: React.FC<AddEventModalProps> = ({
             </h2>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="bg-white dark:bg-surface-dark p-5 rounded-2xl shadow-sm space-y-4">
-                  <div>
+                  <div className="relative" ref={studentDropdownRef}>
                     <label className={`block text-[10px] font-black uppercase tracking-widest mb-1 ${isPalestraMode ? 'text-sky-500/70' : 'text-gray-400'}`}>{isPalestraMode ? 'Contratante/Evento *' : 'Nome da Aluna *'}</label>
-                    <input type="text" required value={studentName} onChange={(e) => setStudentName(e.target.value)} className={`w-full px-4 py-3 rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-bg-dark text-gray-800 dark:text-white focus:ring-2 ${focusRingClass} outline-none transition-all font-bold`} placeholder={isPalestraMode ? "Ex: Eventos S.A." : "Ex: Ana Silva"} />
+                    <input 
+                      type="text" 
+                      required 
+                      autoComplete="off"
+                      value={studentName} 
+                      onFocus={() => !isPalestraMode && setShowStudentSuggestions(true)}
+                      onChange={(e) => {
+                        setStudentName(e.target.value);
+                        if (!isPalestraMode) setShowStudentSuggestions(true);
+                      }} 
+                      className={`w-full px-4 py-3 rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-bg-dark text-gray-800 dark:text-white focus:ring-2 ${focusRingClass} outline-none transition-all font-bold`} 
+                      placeholder={isPalestraMode ? "Ex: Eventos S.A." : "Ex: Ana Silva"} 
+                    />
+                    
+                    {showStudentSuggestions && studentSuggestions.length > 0 && (
+                        <div className="absolute top-full left-0 w-full mt-1 bg-white dark:bg-surface-dark border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl z-[100] max-h-48 overflow-y-auto no-scrollbar py-2">
+                             <p className="px-4 py-1 text-[8px] font-black text-gray-400 uppercase tracking-widest border-b border-gray-50 dark:border-gray-800 mb-1">Alunas encontradas</p>
+                             {studentSuggestions.map((s) => (
+                                <button key={s.id} type="button" onClick={() => selectStudent(s)} className={`w-full px-4 py-2.5 text-left text-sm font-bold text-gray-700 dark:text-gray-200 transition-colors border-b border-gray-50 dark:border-gray-800 last:border-0 ${highlightBgClass} flex items-center gap-3`} >
+                                    <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-primary"><UserIcon className="w-3.5 h-3.5" /></div>
+                                    <div className="flex flex-col">
+                                        <span>{s.name}</span>
+                                        <span className="text-[10px] text-gray-400 font-normal">{s.phone || 'Sem telefone'}</span>
+                                    </div>
+                                </button>
+                             ))}
+                        </div>
+                    )}
                   </div>
                   <div>
                     <label className={`block text-[10px] font-black uppercase tracking-widest mb-1 ${isPalestraMode ? 'text-sky-500/70' : 'text-gray-400'}`}>WhatsApp</label>
