@@ -204,6 +204,21 @@ function App() {
       payments: eventData.payments?.map(p => ({...p, date: p.date instanceof Date ? p.date.toISOString() : p.date })) || []
     };
     
+    // Auto-create student if it doesn't exist
+    if (!isLecNow && eventData.student) {
+        const studentExists = students.some(s => s.name.toLowerCase() === eventData.student?.toLowerCase());
+        if (!studentExists) {
+            const studentId = generateId();
+            await api.put(`v1/students/${studentId}`, {
+                id: studentId,
+                name: eventData.student,
+                phone: eventData.whatsapp || '',
+                email: eventData.email || '',
+                createdAt: new Date().toISOString()
+            });
+        }
+    }
+
     setIsAddEventOpen(false);
     setEditingEvent(null);
     await api.put(`${basePath}/${uniqueId}`, saveObj);
@@ -471,7 +486,7 @@ function App() {
               </div>
           </div>
       )}
-      <AddEventModal isOpen={isAddEventOpen} onClose={() => { setIsAddEventOpen(false); setEditingEvent(null); }} onSave={handleSaveEvent} courseTypes={courseTypes} initialDate={selectedDate} initialEvent={editingEvent} forcedModel={preSelectedModel} lectureModels={lectureModels.map(m => m.name)} allEvents={allEvents} />
+      <AddEventModal isOpen={isAddEventOpen} onClose={() => { setIsAddEventOpen(false); setEditingEvent(null); }} onSave={handleSaveEvent} courseTypes={courseTypes} initialDate={selectedDate} initialEvent={editingEvent} forcedModel={preSelectedModel} lectureModels={lectureModels.map(m => m.name)} allEvents={allEvents} students={students} />
       <PaymentModal isOpen={isPaymentModalOpen} onClose={() => setIsPaymentModalOpen(false)} event={selectedEventForPayment} onConfirmPayment={async (a,d,m) => { if(!selectedEventForPayment) return; const currentPs = selectedEventForPayment.payments || []; const newP = { id: Math.random().toString(), amount: a, date: d, method: m }; const isLec = (selectedEventForPayment.title === 'Palestra' || selectedEventForPayment.title === 'Workshop' || lectureModels.some(m => m.name === selectedEventForPayment.title)); const path = (isLec ? 'palestras_v1' : 'v1/appointments'); const updatedEv: CalendarEvent = { ...selectedEventForPayment, payments: [...currentPs, newP], paymentStatus: (currentPs.reduce((s,p)=>s+p.amount,0) + a) >= (selectedEventForPayment.value || 0) ? 'paid' : 'pending' }; await api.put(path + '/' + updatedEv.id, updatedEv); refreshData(); }} />
       <ConfirmationModal isOpen={deleteData.isOpen} onClose={() => setDeleteData({isOpen: false, eventId: null})} onConfirm={executeDelete} title="Excluir Agendamento" message="" />
       <ShareModal isOpen={shareData.isOpen} onClose={() => setShareData({ isOpen: false, event: null })} event={shareData.event} />
