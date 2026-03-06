@@ -22,6 +22,7 @@ interface EventListProps {
   lectureModels?: LectureModel[];
   hideCount?: boolean;
   allEvents?: CalendarEvent[];
+  highlightEventId?: string | null;
 }
 
 export const EventList: React.FC<EventListProps> = ({ 
@@ -39,7 +40,8 @@ export const EventList: React.FC<EventListProps> = ({
   courseTypes = [],
   lectureModels = [],
   hideCount = false,
-  allEvents = []
+  allEvents = [],
+  highlightEventId = null
 }) => {
   const [quickMaterialName, setQuickMaterialName] = useState<{ [key: string]: string }>({});
   const [quickMaterialCost, setQuickMaterialCost] = useState<{ [key: string]: string }>({});
@@ -48,6 +50,7 @@ export const EventList: React.FC<EventListProps> = ({
   const [expandedGroups, setExpandedGroups] = useState<string[]>([]);
   
   const eventRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
+  const lastScrolledRef = useRef<{ id: string | null; date: string | null }>({ id: null, date: null });
 
   const checkIfPalestra = (evt: CalendarEvent) => {
     const courseConfig = courseTypes.find(c => c.name === evt.title);
@@ -63,19 +66,76 @@ export const EventList: React.FC<EventListProps> = ({
     setTimeout(() => setCopiedEmailId(null), 2000);
   };
 
-  // Efeito para rolar até o dia selecionado no calendário
+  // Efeito para rolar até o dia selecionado no calendário ou evento destacado
   useEffect(() => {
     const dateKey = date.toISOString().split('T')[0];
-    const targetElement = eventRefs.current[dateKey];
-    if (targetElement) {
-      const headerHeight = 80; // Ajuste para o cabeçalho fixo
-      const elementPosition = targetElement.getBoundingClientRect().top + window.pageYOffset;
-      window.scrollTo({
-        top: elementPosition - headerHeight,
-        behavior: 'smooth'
-      });
+    
+    // Se temos um destaque, rolamos para ele apenas UMA vez
+    if (highlightEventId) {
+      if (lastScrolledRef.current.id === highlightEventId) return;
+      
+      const targetEvent = events.find(e => e.id === highlightEventId);
+      if (targetEvent) {
+        lastScrolledRef.current.id = highlightEventId;
+        lastScrolledRef.current.date = dateKey; // Marca como rolado para esta data também
+
+        const isPal = checkIfPalestra(targetEvent);
+        const baseValue = parseCurrency(targetEvent.value) || 0;
+        const totalValue = (isPal && targetEvent.palestraType === 'MEU') ? baseValue * (targetEvent.studentCount || 1) : baseValue;
+        const totalPaid = (targetEvent.payments || []).reduce((acc, p) => acc + parseCurrency(p.amount), 0);
+        const isPaid = (totalValue - totalPaid) < 0.01 && totalValue > 0;
+
+        let group: 'zero' | 'partial' | 'paid' = 'zero';
+        if (isPaid) {
+          group = 'paid';
+        } else if (!isPal && targetEvent.paymentMethod === 'Facilitado') {
+          if ((targetEvent.payments || []).length <= 1) {
+            group = 'zero';
+          } else {
+            group = 'partial';
+          }
+        } else {
+          if (totalPaid > 0) {
+            group = 'partial';
+          } else {
+            group = 'zero';
+          }
+        }
+
+        // Expand the group
+        setExpandedGroups(prev => prev.includes(group) ? prev : [...prev, group]);
+
+        // Small delay to allow expansion to render
+        setTimeout(() => {
+          const targetElement = eventRefs.current[highlightEventId];
+          if (targetElement) {
+            const headerHeight = 80;
+            const elementPosition = targetElement.getBoundingClientRect().top + window.pageYOffset;
+            window.scrollTo({
+              top: elementPosition - headerHeight,
+              behavior: 'smooth'
+            });
+          }
+        }, 150);
+      }
+    } else {
+      // Se não tem destaque, rolamos para a data apenas se ela mudou
+      if (lastScrolledRef.current.date === dateKey) return;
+      
+      const targetElement = eventRefs.current[dateKey];
+      if (targetElement) {
+        lastScrolledRef.current.date = dateKey;
+        lastScrolledRef.current.id = null; // Reseta o ID de destaque quando muda a data manualmente
+
+        const headerHeight = 80;
+        const elementPosition = targetElement.getBoundingClientRect().top + window.pageYOffset;
+        window.scrollTo({
+          top: elementPosition - headerHeight,
+          behavior: 'smooth'
+        });
+      }
     }
-  }, [date]);
+  }, [date, highlightEventId, events]);
 
   const isPalestraTarget = useMemo(() => {
     if (!removeConfirm) return false;
@@ -340,9 +400,9 @@ export const EventList: React.FC<EventListProps> = ({
           return (
             <div 
               key={evt.id}
-              ref={el => { if (dateKey) eventRefs.current[dateKey] = el; }}
+              ref={el => { eventRefs.current[evt.id] = el; if (dateKey && !eventRefs.current[dateKey]) eventRefs.current[dateKey] = el; }}
               className={`bg-white dark:bg-surface-dark rounded-xl shadow-lg border border-gray-100 dark:border-gray-800 overflow-hidden relative transition-all duration-300
-                 ${isCloseOrOverdue ? 'ring-2 ring-red-600 dark:ring-red-50' : (isPalestra ? 'border-sky-200 shadow-sky-500/10' : '')}
+                 ${highlightEventId === evt.id ? 'ring-4 ring-yellow-400 scale-[1.02] z-10' : (isCloseOrOverdue ? 'ring-2 ring-red-600 dark:ring-red-50' : (isPalestra ? 'border-sky-200 shadow-sky-500/10' : ''))}
               `}
             >
               <div className={`${isPalestra ? 'bg-sky-500' : 'bg-[#1A4373]'} py-3 px-4 flex flex-col items-center justify-center relative min-h-[50px]`}>
