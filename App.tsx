@@ -22,7 +22,7 @@ import { StudentModal } from './components/StudentModal';
 import { LoginScreen } from './components/LoginScreen'; 
 import { UnifiedSearch } from './components/UnifiedSearch';
 import { LectureModelManager } from './components/LectureModelManager';
-import { MenuIcon, PlusIcon, MoonIcon, SunIcon, EyeIcon, EyeOffIcon, CalendarIcon, AlertCircleIcon, XIcon, BoxIcon, MicIcon, GraduationCapIcon, SearchIcon, ChevronUpIcon } from './components/Icons';
+import { MenuIcon, PlusIcon, MoonIcon, SunIcon, EyeIcon, EyeOffIcon, CalendarIcon, AlertCircleIcon, XIcon, BoxIcon, MicIcon, GraduationCapIcon, SearchIcon, ChevronUpIcon, CheckIcon, BellIcon } from './components/Icons';
 import { parseCurrency } from './utils/currency';
 
 const FIREBASE_URL = "https://selectclass-dd1d0-default-rtdb.firebaseio.com/";
@@ -175,6 +175,66 @@ function App() {
   const [dashboardTab, setDashboardTab] = useState<'cursos' | 'palestras'>('cursos');
   const [dashboardPeriod, setDashboardPeriod] = useState<'month' | 'day'>('month');
   const [searchTerm, setSearchTerm] = useState('');
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const [highlightEventId, setHighlightEventId] = useState<string | null>(null);
+
+  const notifications = useMemo(() => {
+    const today = new Date();
+    today.setHours(0,0,0,0);
+
+    return allEvents.filter(evt => {
+      const isPal = (evt.palestraType || evt.title === 'Palestra' || evt.title === 'Workshop' || lectureModels.some(m => m.name === evt.title));
+      if (isPal) return false;
+
+      // Calculate total value
+      const baseValue = parseCurrency(evt.value) || 0;
+      const totalPaid = (evt.payments || []).reduce((acc, p) => acc + parseCurrency(p.amount), 0);
+      const isPaid = (baseValue - totalPaid) < 0.01 && baseValue > 0;
+      if (isPaid) return false;
+
+      if (!evt.paymentFrequency || !evt.createdAt || !evt.date) return false;
+
+      // Calculate schedule
+      const startDate = new Date(evt.createdAt);
+      const courseDate = new Date(evt.date);
+      courseDate.setHours(0,0,0,0);
+      const deadlineDays = evt.paymentDeadlineDays || 0;
+      const interval = evt.paymentFrequency === 'weekly' ? 7 : 15;
+      
+      const maxDate = new Date(courseDate);
+      maxDate.setDate(courseDate.getDate() - deadlineDays);
+      
+      const scheduleDates: Date[] = [];
+      let i = 1;
+      while (true) {
+        let d = new Date(startDate);
+        d.setDate(startDate.getDate() + (interval * i));
+        if (d.getTime() >= maxDate.getTime()) {
+          scheduleDates.push(new Date(maxDate));
+          break;
+        } else {
+          scheduleDates.push(d);
+        }
+        i++;
+        if (i > 50) break;
+      }
+
+      // Check if any installment is due or overdue
+      return scheduleDates.some((d, idx) => {
+        const isPaidInstallment = evt.payments?.some(p => p.installment === idx + 1);
+        if (isPaidInstallment) return false;
+        
+        const installmentDate = new Date(d);
+        installmentDate.setHours(0,0,0,0);
+        return installmentDate.getTime() <= today.getTime();
+      });
+    }).sort((a, b) => {
+      // Sort by event date (closest first)
+      const dateA = a.date ? new Date(a.date).getTime() : 0;
+      const dateB = b.date ? new Date(b.date).getTime() : 0;
+      return dateA - dateB;
+    });
+  }, [allEvents, lectureModels, dashboardTab]);
 
   const currentDayEventsCount = useMemo(() => {
     return allEvents.filter(e => { 
@@ -599,6 +659,7 @@ function App() {
               lectureModels={lectureModels} 
               hideCount={dashboardTab === 'palestras'}
               allEvents={allEvents}
+              highlightEventId={highlightEventId}
             />
           </>
         );
@@ -627,7 +688,71 @@ function App() {
           <button onClick={() => setIsDrawerOpen(true)} className="p-2 rounded-full hover:bg-white/10 text-white transition-colors focus:outline-none"><MenuIcon className="w-6 h-6" /></button>
           <div className="flex items-center gap-2"><img src="https://i.postimg.cc/gJ2C9FMT/icon.png" alt="Logo" className="h-8 w-auto" /><h1 className="text-xl font-bold text-white tracking-wide">SelectClass</h1></div>
         </div>
-        <button onClick={() => setIsDarkMode(!isDarkMode)} className="p-2 rounded-full hover:bg-white/10 text-white transition-colors">{isDarkMode ? <SunIcon className="w-5 h-5" /> : <MoonIcon className="w-5 h-5" />}</button>
+        <div className="flex items-center gap-1">
+          <div className="relative">
+            <button 
+              onClick={() => setIsNotificationsOpen(!isNotificationsOpen)} 
+              className="p-2 rounded-full hover:bg-white/10 text-white transition-colors relative"
+            >
+              <BellIcon className="w-6 h-6" />
+              {notifications.length > 0 && (
+                <span className="absolute top-1 right-1 bg-red-500 text-white text-[10px] font-black w-4 h-4 rounded-full flex items-center justify-center border-2 border-primary">
+                  {notifications.length}
+                </span>
+              )}
+            </button>
+
+            {isNotificationsOpen && (
+              <div className="absolute right-0 mt-2 w-72 bg-white dark:bg-surface-dark rounded-2xl shadow-2xl border border-gray-100 dark:border-gray-800 overflow-hidden z-[110] animate-slide-up">
+                <div className="p-4 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center bg-gray-50 dark:bg-white/5">
+                  <h3 className="text-xs font-black text-gray-800 dark:text-white uppercase tracking-widest">Notificações</h3>
+                  <button onClick={() => setIsNotificationsOpen(false)} className="text-gray-400 hover:text-gray-600"><XIcon className="w-4 h-4" /></button>
+                </div>
+                <div className="max-h-96 overflow-y-auto">
+                  {notifications.length === 0 ? (
+                    <div className="p-8 text-center">
+                      <CheckIcon className="w-8 h-8 text-emerald-500 mx-auto mb-2 opacity-20" />
+                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Tudo em dia!</p>
+                    </div>
+                  ) : (
+                    <div className="divide-y divide-gray-50 dark:divide-gray-800">
+                      {notifications.map(evt => (
+                        <button 
+                          key={evt.id}
+                          onClick={() => {
+                            if (evt.date) {
+                              const isPal = (evt.palestraType || evt.title === 'Palestra' || evt.title === 'Workshop' || lectureModels.some(m => m.name === evt.title));
+                              setSelectedDate(new Date(evt.date));
+                              setDashboardTab(isPal ? 'palestras' : 'cursos');
+                              setHighlightEventId(evt.id);
+                              setCurrentView(AppView.HOME);
+                              setIsNotificationsOpen(false);
+                              
+                              // Clear highlight after some time
+                              setTimeout(() => setHighlightEventId(null), 5000);
+                            }
+                          }}
+                          className="w-full p-4 text-left hover:bg-gray-50 dark:hover:bg-white/5 transition-colors flex gap-3 items-start"
+                        >
+                          <div className="w-8 h-8 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center flex-shrink-0">
+                            <AlertCircleIcon className="w-4 h-4 text-red-500" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-black text-gray-900 dark:text-white uppercase truncate">{evt.student}</p>
+                            <p className="text-[10px] font-bold text-red-500 uppercase mt-0.5">Pagamento Pendente</p>
+                            <p className="text-[9px] text-gray-400 dark:text-gray-500 mt-1 uppercase font-medium">
+                              {evt.title} • {evt.date ? new Date(evt.date).toLocaleDateString('pt-BR') : ''}
+                            </p>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
       </header>
       <Drawer isOpen={isDrawerOpen} onClose={() => setIsDrawerOpen(false)} currentView={currentView} onChangeView={setCurrentView} onLogout={handleLogout} />
       <main className="relative max-w-md mx-auto min-h-screen sm:max-w-xl md:max-w-2xl lg:max-w-4xl xl:max-w-5xl pt-16">{renderContent()}</main>
