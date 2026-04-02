@@ -412,6 +412,34 @@ function App() {
     refreshData();
   };
 
+  const handleDirectInstallmentPaid = async (event: CalendarEvent, installment: number, amount: number) => {
+    const newPayment = {
+      id: Math.random().toString(36).substr(2, 9),
+      amount,
+      date: new Date().toISOString(),
+      method: 'Pix',
+      installment
+    };
+    const updatedPayments = [...(event.payments || []), newPayment];
+    const path = (event.title === 'Palestra' || event.title === 'Workshop' || lectureModels.some(m => m.name === event.title)) ? 'palestras_v1' : 'v1/appointments';
+    await api.put(`${path}/${event.id}`, { ...event, payments: updatedPayments, date: event.date instanceof Date ? event.date.toISOString() : event.date });
+    refreshData();
+  };
+
+  const handleShareFinancialSummary = (event: CalendarEvent) => {
+    const totalValue = event.value || 0;
+    const totalPaid = event.payments?.reduce((acc, p) => acc + p.amount, 0) || 0;
+    const remaining = Math.max(0, totalValue - totalPaid);
+    
+    const message = `*RESUMO FINANCEIRO*\n` +
+      `*Valor Total:* R$ ${totalValue.toFixed(2).replace('.', ',')}\n` +
+      `*Valor Pago:* R$ ${totalPaid.toFixed(2).replace('.', ',')}\n` +
+      `*Restante:* R$ ${remaining.toFixed(2).replace('.', ',')}`;
+
+    const waLink = `https://wa.me/${event.whatsapp?.replace(/\D/g, '')}?text=${encodeURIComponent(message)}`;
+    window.open(waLink, '_blank');
+  };
+
   const handleSaveCourseOrder = async (orderedList: CourseType[]) => {
       for (const item of orderedList) await api.put(`v1/courses/${item.id}`, item);
       refreshData();
@@ -655,6 +683,8 @@ function App() {
                 setSelectedInstallment(inst);
                 setIsPaymentModalOpen(true);
               }}
+              onDirectInstallmentPaid={handleDirectInstallmentPaid}
+              onShareFinancialSummary={handleShareFinancialSummary}
               courseTypes={courseTypes} 
               lectureModels={lectureModels} 
               hideCount={dashboardTab === 'palestras'}
