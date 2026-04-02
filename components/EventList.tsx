@@ -18,6 +18,8 @@ interface EventListProps {
   onShareEvent?: (event: CalendarEvent) => void;
   onToggleAbate?: (eventId: string) => void;
   onQuickInstallmentPaid?: (event: CalendarEvent, installment: number) => void;
+  onDirectInstallmentPaid?: (event: CalendarEvent, installment: number, amount: number) => void;
+  onShareFinancialSummary?: (event: CalendarEvent) => void;
   courseTypes?: CourseType[];
   lectureModels?: LectureModel[];
   hideCount?: boolean;
@@ -37,6 +39,8 @@ export const EventList: React.FC<EventListProps> = ({
   onShareEvent, 
   onToggleAbate,
   onQuickInstallmentPaid,
+  onDirectInstallmentPaid,
+  onShareFinancialSummary,
   courseTypes = [],
   lectureModels = [],
   hideCount = false,
@@ -48,6 +52,7 @@ export const EventList: React.FC<EventListProps> = ({
   const [removeConfirm, setRemoveConfirm] = useState<{ isOpen: boolean; eventId: string; materialId: string } | null>(null);
   const [copiedEmailId, setCopiedEmailId] = useState<string | null>(null);
   const [expandedGroups, setExpandedGroups] = useState<string[]>([]);
+  const [installmentChoice, setInstallmentChoice] = useState<{eventId: string, installment: number} | null>(null);
   
   const eventRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
   const lastScrolledRef = useRef<{ id: string | null; date: string | null }>({ id: null, date: null });
@@ -487,16 +492,48 @@ export const EventList: React.FC<EventListProps> = ({
                                    <CheckIcon className="w-3 h-3" /> PAGO
                                  </span>
                                ) : (
-                                 <button 
-                                   onClick={() => onQuickInstallmentPaid?.(evt, i + 1)}
-                                   className={`flex items-center gap-1 px-2 py-1 rounded-lg transition-colors font-black border ${isBlinkingButton ? 'bg-red-500 text-white border-red-600 animate-soft-blink shadow-lg shadow-red-500/20' : 'bg-primary/10 text-primary dark:text-blue-300 border-primary/20 hover:bg-primary/20'}`}
-                                   title="Dar baixa nesta parcela"
-                                 >
-                                   <span className="mr-1">{d.toLocaleDateString('pt-BR', {day:'2-digit', month:'2-digit'})}</span>
-                                   <div className={`${isBlinkingButton ? 'bg-white text-red-500' : 'bg-primary text-white'} rounded-full p-0.5`}>
-                                     <PlusIcon className="w-2.5 h-2.5" />
-                                   </div>
-                                 </button>
+                                 <div className="relative">
+                                   {installmentChoice?.eventId === evt.id && installmentChoice?.installment === i + 1 ? (
+                                     <div className="flex gap-1 animate-in fade-in zoom-in duration-200">
+                                       <button 
+                                         onClick={() => {
+                                           const instValue = remaining / (scheduleDates.length - (evt.payments?.filter(p => p.installment).length || 0));
+                                           onDirectInstallmentPaid?.(evt, i + 1, instValue);
+                                           setInstallmentChoice(null);
+                                         }}
+                                         className="bg-emerald-500 text-white px-2 py-1 rounded-lg text-[9px] font-black uppercase shadow-sm hover:bg-emerald-600 transition-colors"
+                                       >
+                                         Dar Baixa
+                                       </button>
+                                       <button 
+                                         onClick={() => {
+                                           onQuickInstallmentPaid?.(evt, i + 1);
+                                           setInstallmentChoice(null);
+                                         }}
+                                         className="bg-primary text-white px-2 py-1 rounded-lg text-[9px] font-black uppercase shadow-sm hover:bg-primary-dark transition-colors"
+                                       >
+                                         Lançar
+                                       </button>
+                                       <button 
+                                         onClick={() => setInstallmentChoice(null)}
+                                         className="bg-gray-200 dark:bg-white/10 text-gray-500 dark:text-gray-400 px-1.5 py-1 rounded-lg text-[9px] font-black uppercase hover:bg-gray-300 transition-colors"
+                                       >
+                                         <XIcon className="w-3 h-3" />
+                                       </button>
+                                     </div>
+                                   ) : (
+                                     <button 
+                                       onClick={() => setInstallmentChoice({ eventId: evt.id, installment: i + 1 })}
+                                       className={`flex items-center gap-1 px-2 py-1 rounded-lg transition-colors font-black border ${isBlinkingButton ? 'bg-red-500 text-white border-red-600 animate-soft-blink shadow-lg shadow-red-500/20' : 'bg-primary/10 text-primary dark:text-blue-300 border-primary/20 hover:bg-primary/20'}`}
+                                       title="Opções de pagamento"
+                                     >
+                                       <span className="mr-1">{d.toLocaleDateString('pt-BR', {day:'2-digit', month:'2-digit'})}</span>
+                                       <div className={`${isBlinkingButton ? 'bg-white text-red-500' : 'bg-primary text-white'} rounded-full p-0.5`}>
+                                         <PlusIcon className="w-2.5 h-2.5" />
+                                       </div>
+                                     </button>
+                                   )}
+                                 </div>
                                )}
                             </div>
                           );
@@ -710,12 +747,20 @@ export const EventList: React.FC<EventListProps> = ({
                           <CheckIcon className="w-5 h-5" /> CURSO PAGO
                        </div>
                    ) : (
-                       <button 
-                          onClick={() => onAddPayment(evt)}
-                          className={`w-full py-3.5 rounded-xl text-xs font-black flex items-center justify-center gap-2 transition-all shadow-sm uppercase tracking-widest bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100`}
-                       >
-                          <PlusIcon className="w-4 h-4" /> Lançar Pagamento
-                       </button>
+                       <>
+                        <button 
+                           onClick={() => onAddPayment(evt)}
+                           className={`w-full py-3.5 rounded-xl text-xs font-black flex items-center justify-center gap-2 transition-all shadow-sm uppercase tracking-widest bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-100`}
+                        >
+                           <PlusIcon className="w-4 h-4" /> Lançar Pagamento
+                        </button>
+                        <button 
+                           onClick={() => onShareFinancialSummary?.(evt)}
+                           className={`w-full py-3.5 rounded-xl text-xs font-black flex items-center justify-center gap-2 transition-all shadow-sm uppercase tracking-widest bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 hover:bg-blue-100 mt-2 border border-blue-100 dark:border-blue-800`}
+                        >
+                           <ShareIcon className="w-4 h-4" /> Compartilhar Resumo
+                        </button>
+                       </>
                    )
                  )}
               </div>
