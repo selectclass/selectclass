@@ -286,17 +286,33 @@ export const AddEventModal: React.FC<AddEventModalProps> = ({
                   </div>
                   <div className="relative" ref={dropdownRef}>
                     <label className={`block text-[10px] font-black uppercase tracking-widest mb-1 ${isPalestraMode ? 'text-sky-500/70' : 'text-gray-400'}`}>Nome do Evento *</label>
-                    <button type="button" onClick={() => setShowCourseDropdown(!showCourseDropdown)} className={`w-full flex items-center justify-between px-4 py-3 rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-bg-dark text-gray-800 dark:text-white focus:ring-2 ${focusRingClass} outline-none text-left transition-all`} >
+                    <button 
+                        type="button" 
+                        onClick={() => setShowCourseDropdown(!showCourseDropdown)} 
+                        className={`w-full flex items-center justify-between px-4 py-3 rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-bg-dark text-gray-800 dark:text-white focus:ring-2 ${focusRingClass} outline-none text-left transition-all font-bold`} 
+                    >
                         <span className={course ? 'font-bold' : 'text-gray-400'}>{course || "Selecione..."}</span>
                         <ChevronRightIcon className={`w-4 h-4 text-gray-400 transition-transform ${showCourseDropdown ? 'rotate-90' : ''}`} />
                     </button>
                     {showCourseDropdown && (
-                        <div className="absolute top-full left-0 w-full mt-1 bg-white dark:bg-surface-dark border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl z-50 max-h-48 overflow-y-auto no-scrollbar py-2">
-                            {(isPalestraMode ? lectureModels : courseTypes.filter(c => c.model !== 'Palestra').map(c => c.name)).map((option) => (
-                                <button key={String(option)} type="button" onClick={() => selectCourse(String(option))} className={`w-full px-4 py-2.5 text-left text-sm font-bold text-gray-700 dark:text-gray-200 transition-colors border-b border-gray-50 dark:border-gray-800 last:border-0 ${highlightBgClass}`} >
-                                    {String(option)}
-                                </button>
-                            ))}
+                        <div className="absolute top-full left-0 w-full mt-1 bg-white dark:bg-surface-dark border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl z-[150] max-h-48 overflow-y-auto no-scrollbar py-2">
+                            {(() => {
+                                const options = isPalestraMode ? lectureModels : courseTypes.filter(c => c.model !== 'Palestra').map(c => c.name);
+                                
+                                if (options.length === 0) {
+                                    return (
+                                        <div className="px-4 py-3 text-center">
+                                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Nenhum modelo cadastrado</p>
+                                        </div>
+                                    );
+                                }
+
+                                return options.map((option) => (
+                                    <button key={String(option)} type="button" onClick={() => selectCourse(String(option))} className={`w-full px-4 py-2.5 text-left text-sm font-bold text-gray-700 dark:text-gray-200 transition-colors border-b border-gray-50 dark:border-gray-800 last:border-0 ${highlightBgClass}`} >
+                                        {String(option)}
+                                    </button>
+                                ));
+                            })()}
                         </div>
                     )}
                   </div>
@@ -323,9 +339,9 @@ export const AddEventModal: React.FC<AddEventModalProps> = ({
                     </div>
                   )}
 
-                  {isPalestraMode && palestraType === 'MEU' && (
+                  {!(isPalestraMode && palestraType === 'MEU') && (
                     <div className="animate-fade-in">
-                      <label className="block text-[10px] font-black text-sky-500/70 uppercase tracking-widest mb-1">Quantidade de Alunas</label>
+                      <label className={`block text-[10px] font-black uppercase tracking-widest mb-1 ${isPalestraMode ? 'text-sky-500/70' : 'text-gray-400'}`}>Quantidade de Alunas</label>
                       <select 
                         value={studentCount} 
                         onChange={(e) => setStudentCount(Number(e.target.value))}
@@ -366,24 +382,31 @@ export const AddEventModal: React.FC<AddEventModalProps> = ({
                     )}
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-4">
                       <div className="flex flex-col">
                           <label className={`block text-[10px] font-black uppercase tracking-widest mb-1 ${isPalestraMode ? 'text-sky-500/70' : 'text-gray-400'}`}>Data de Início</label>
                           <div className="relative">
                               <CalendarIcon className={`absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 ${isPalestraMode ? 'text-sky-300' : 'text-gray-300'}`} />
-                              <input type="date" required value={dateStr} onChange={(e) => setDateStr(e.target.value)} className={`w-full pl-9 pr-1 py-3 rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-bg-dark text-gray-800 dark:text-white focus:ring-2 ${focusRingClass} outline-none transition-all text-[10px] sm:text-[11px] font-bold`} />
+                              <input type="date" required value={dateStr} onChange={(e) => setDateStr(e.target.value)} className={`w-full pl-11 pr-4 py-3 rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-bg-dark text-gray-800 dark:text-white focus:ring-2 ${focusRingClass} outline-none transition-all font-bold`} />
+                          </div>
+                      </div>
+                      <div className="flex flex-col">
+                          <label className={`block text-[10px] font-black uppercase tracking-widest mb-1 ${isPalestraMode ? 'text-sky-500/70' : 'text-gray-400'}`}>Horário</label>
+                          <div className="relative">
+                              <ClockIcon className={`absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 ${isPalestraMode ? 'text-sky-300' : 'text-gray-300'}`} />
+                              <input type="time" value={timeStr} onChange={(e) => setTimeStr(e.target.value)} className={`w-full pl-11 pr-4 py-3 rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-bg-dark text-gray-800 dark:text-white focus:ring-2 ${focusRingClass} outline-none transition-all font-bold`} />
                           </div>
                       </div>
                       <div className="flex flex-col relative" ref={durationDropdownRef}>
                           <label className={`block text-[10px] font-black uppercase tracking-widest mb-1 ${isPalestraMode ? 'text-sky-500/70' : 'text-gray-400'}`}>Duração (Dias)</label>
-                          <button type="button" onClick={() => setShowDurationDropdown(!showDurationDropdown)} className={`w-full flex items-center justify-between px-4 py-3 rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-bg-dark text-gray-800 dark:text-white focus:ring-2 ${focusRingClass} outline-none text-[11px] font-bold text-left transition-all`} >
-                              <span>{durationStr}</span>
+                          <button type="button" onClick={() => setShowDurationDropdown(!showDurationDropdown)} className={`w-full flex items-center justify-between px-4 py-3 rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-bg-dark text-gray-800 dark:text-white focus:ring-2 ${focusRingClass} outline-none font-bold text-left transition-all`} >
+                              <span className={durationStr ? 'font-bold' : 'text-gray-400'}>{durationStr}</span>
                               <ChevronRightIcon className={`w-4 h-4 text-gray-400 transition-transform ${showDurationDropdown ? 'rotate-90' : ''}`} />
                           </button>
                           {showDurationDropdown && (
-                              <div className="absolute top-full left-0 w-full mt-1 bg-white dark:bg-surface-dark border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl z-50 max-h-48 overflow-y-auto no-scrollbar py-2">
+                              <div className="absolute top-full left-0 w-full mt-1 bg-white dark:bg-surface-dark border border-gray-200 dark:border-gray-700 rounded-xl shadow-xl z-[150] max-h-48 overflow-y-auto no-scrollbar py-2">
                                   {Array.from({ length: 30 }, (_, i) => i + 1).map((d) => (
-                                      <button key={d} type="button" onClick={() => selectDuration(d)} className={`w-full px-4 py-2 text-left text-xs font-bold text-gray-700 dark:text-gray-200 transition-colors border-b border-gray-50 dark:border-gray-800 last:border-0 ${highlightBgClass}`} >
+                                      <button key={d} type="button" onClick={() => selectDuration(d)} className={`w-full px-4 py-2.5 text-left text-sm font-bold text-gray-700 dark:text-gray-200 transition-colors border-b border-gray-50 dark:border-gray-800 last:border-0 ${highlightBgClass}`} >
                                           {d} {d === 1 ? 'dia' : 'dias'}
                                       </button>
                                   ))}
@@ -392,95 +415,92 @@ export const AddEventModal: React.FC<AddEventModalProps> = ({
                       </div>
                   </div>
               </div>
-              <div className="bg-white dark:bg-surface-dark p-5 rounded-2xl shadow-sm space-y-4">
-                  <div className="grid grid-cols-2 gap-3">
-                      <div className="flex flex-col">
-                          <label className={`block text-[10px] font-black uppercase tracking-widest mb-1 ${isPalestraMode ? 'text-sky-500/70' : 'text-gray-400'}`}>
-                            Valor {isPalestraMode ? (palestraType === 'MEU' ? 'do Curso' : 'do Cachê') : 'Total'}
-                          </label>
-                          <div className="relative">
-                              <DollarSignIcon className={`absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 ${isPalestraMode ? 'text-sky-300' : 'text-gray-300'}`} />
-                              <input type="text" inputMode="numeric" value={valueStr} onChange={(e) => setValueStr(formatCurrencyInput(e.target.value))} className={`w-full pl-11 pr-4 py-3 rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-bg-dark text-gray-800 dark:text-white focus:ring-2 ${focusRingClass} outline-none transition-all font-bold`} placeholder="0,00" />
-                          </div>
-                      </div>
-                      <div className="flex flex-col">
-                          <label className={`block text-[10px] font-black uppercase tracking-widest mb-1 ${isPalestraMode ? 'text-sky-500/70' : 'text-gray-400'}`}>Horário</label>
-                          <div className="relative">
-                              <ClockIcon className={`absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 ${isPalestraMode ? 'text-sky-300' : 'text-gray-300'}`} />
-                              <input type="time" value={timeStr} onChange={(e) => setTimeStr(e.target.value)} className={`w-full pl-9 pr-1 py-3 rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-bg-dark text-gray-800 dark:text-white focus:ring-2 ${focusRingClass} outline-none transition-all text-[10px] sm:text-[11px] font-bold`} />
-                          </div>
-                      </div>
-                  </div>
-                  {isPalestraMode ? (
-                      <div className="space-y-3">
-                          <div>
-                              <label className="block text-[10px] font-black text-sky-500/70 uppercase tracking-widest mb-1">Tipo de Pagamento</label>
-                              <div className="grid grid-cols-2 gap-2">
-                                  <button type="button" onClick={() => setPalestraPaymentType('SINAL')} className={`py-2.5 rounded-xl text-[10px] font-black uppercase transition-all border ${palestraPaymentType === 'SINAL' ? 'bg-sky-500 border-sky-500 text-white shadow-lg' : 'bg-gray-50 border-gray-100 text-gray-400'}`}>Sinal</button>
-                                  <button type="button" onClick={() => setPalestraPaymentType('TOTAL')} className={`py-2.5 rounded-xl text-[10px] font-black uppercase transition-all border ${palestraPaymentType === 'TOTAL' ? 'bg-sky-500 border-sky-500 text-white shadow-lg' : 'bg-gray-50 border-gray-100 text-gray-400'}`}>Total</button>
-                              </div>
-                          </div>
-                          <div>
-                              <label className="block text-[10px] font-black text-sky-500/70 uppercase tracking-widest mb-1">Método</label>
-                              <div className="flex gap-2">
-                                  {['Pix', 'Cartão', 'Dinheiro'].map(method => (
-                                      <button key={method} type="button" onClick={() => setPaymentMethod(method)} className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border ${paymentMethod === method ? 'bg-sky-500 border-sky-500 text-white shadow-md' : 'bg-white border-gray-100 text-gray-400'}`} > {method} </button>
-                                  ))}
-                              </div>
-                          </div>
-                      </div>
-                  ) : (
-                      <>
-                        <div className="grid grid-cols-2 gap-3 pt-1">
+
+              {!(isPalestraMode && palestraType === 'MEU') && (
+                <div className="bg-white dark:bg-surface-dark p-5 rounded-2xl shadow-sm space-y-4">
+                    <div className="grid grid-cols-2 gap-3">
+                        <div className="flex flex-col">
+                            <label className={`block text-[10px] font-black uppercase tracking-widest mb-1 ${isPalestraMode ? 'text-sky-500/70' : 'text-gray-400'}`}>
+                              Valor {isPalestraMode ? (palestraType === 'MEU' ? 'do Curso' : 'do Cachê') : 'Total'}
+                            </label>
+                            <div className="relative">
+                                <DollarSignIcon className={`absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 ${isPalestraMode ? 'text-sky-300' : 'text-gray-300'}`} />
+                                <input type="text" inputMode="numeric" value={valueStr} onChange={(e) => setValueStr(formatCurrencyInput(e.target.value))} className={`w-full pl-11 pr-4 py-3 rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-bg-dark text-gray-800 dark:text-white focus:ring-2 ${focusRingClass} outline-none transition-all font-bold`} placeholder="0,00" />
+                            </div>
+                        </div>
+                    </div>
+                    
+                    {isPalestraMode ? (
+                        <div className="space-y-3">
                             <div>
-                                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Método</label>
-                                <select value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)} className={`w-full px-4 py-3 rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-bg-dark text-gray-800 dark:text-white focus:ring-2 ${focusRingClass} outline-none appearance-none transition-all font-bold`} >
-                                    <option value="Facilitado">Facilitado</option>
-                                    <option value="Pix">Pix</option>
-                                    <option value="Cartão">Cartão</option>
-                                    <option value="Dinheiro">Dinheiro</option>
-                                </select>
+                                <label className="block text-[10px] font-black text-sky-500/70 uppercase tracking-widest mb-1">Tipo de Pagamento</label>
+                                <div className="grid grid-cols-2 gap-2">
+                                    <button type="button" onClick={() => setPalestraPaymentType('SINAL')} className={`py-2.5 rounded-xl text-[10px] font-black uppercase transition-all border ${palestraPaymentType === 'SINAL' ? 'bg-sky-500 border-sky-500 text-white shadow-lg' : 'bg-gray-50 border-gray-100 text-gray-400'}`}>Sinal</button>
+                                    <button type="button" onClick={() => setPalestraPaymentType('TOTAL')} className={`py-2.5 rounded-xl text-[10px] font-black uppercase transition-all border ${palestraPaymentType === 'TOTAL' ? 'bg-sky-500 border-sky-500 text-white shadow-lg' : 'bg-gray-50 border-gray-100 text-gray-400'}`}>Total</button>
+                                </div>
                             </div>
                             <div>
-                                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">{paymentMethod === 'Facilitado' ? 'SINAL RECEBIDO' : 'VALOR RECEBIDO'}</label>
-                                <div className="relative">
-                                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 font-bold text-xs">R$</span>
-                                    <input type="text" inputMode="numeric" value={depositStr} onChange={(e) => setDepositStr(formatCurrencyInput(e.target.value))} className={`w-full pl-10 pr-4 py-3 rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-bg-dark text-gray-800 dark:text-white focus:ring-2 ${focusRingClass} outline-none transition-all font-bold`} placeholder="0,00" />
+                                <label className="block text-[10px] font-black text-sky-500/70 uppercase tracking-widest mb-1">Método</label>
+                                <div className="flex gap-2">
+                                    {['Pix', 'Cartão', 'Dinheiro'].map(method => (
+                                        <button key={method} type="button" onClick={() => setPaymentMethod(method)} className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border ${paymentMethod === method ? 'bg-sky-500 border-sky-500 text-white shadow-md' : 'bg-white border-gray-100 text-gray-400'}`} > {method} </button>
+                                    ))}
                                 </div>
                             </div>
                         </div>
-
-                        {paymentMethod === 'Facilitado' && (
-                          <div className="pt-2 animate-fade-in">
-                              <label className="block text-[10px] font-black text-primary dark:text-blue-300 uppercase tracking-widest mb-2">Frequência de Pagamento</label>
-                              <div className="grid grid-cols-3 gap-2">
-                                  <button type="button" onClick={() => setPaymentFrequency('weekly')} className={`py-2.5 rounded-xl text-[10px] font-black uppercase transition-all border ${paymentFrequency === 'weekly' ? 'bg-primary border-primary text-white shadow-lg' : 'bg-gray-50 border-gray-100 text-gray-400'}`}>Semanal</button>
-                                  <button type="button" onClick={() => setPaymentFrequency('biweekly')} className={`py-2.5 rounded-xl text-[10px] font-black uppercase transition-all border ${paymentFrequency === 'biweekly' ? 'bg-primary border-primary text-white shadow-lg' : 'bg-gray-50 border-gray-100 text-gray-400'}`}>Quinzenal</button>
-                                  <button type="button" onClick={() => setPaymentFrequency(undefined)} className={`py-2.5 rounded-xl text-[10px] font-black uppercase transition-all border ${paymentFrequency === undefined ? 'bg-primary border-primary text-white shadow-lg' : 'bg-gray-50 border-gray-100 text-gray-400'}`}>Nenhum</button>
+                    ) : (
+                        <>
+                          <div className="grid grid-cols-2 gap-3 pt-1">
+                              <div>
+                                  <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Método</label>
+                                  <select value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)} className={`w-full px-4 py-3 rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-bg-dark text-gray-800 dark:text-white focus:ring-2 ${focusRingClass} outline-none appearance-none transition-all font-bold`} >
+                                      <option value="Facilitado">Facilitado</option>
+                                      <option value="Pix">Pix</option>
+                                      <option value="Cartão">Cartão</option>
+                                      <option value="Dinheiro">Dinheiro</option>
+                                  </select>
                               </div>
-                              
-                              <div className="animate-fade-in mt-4">
-                                <label className="block text-[10px] font-black text-primary dark:text-blue-300 uppercase tracking-widest mb-2">Quitar até quantos dias antes?</label>
-                                <div className="flex gap-4 mb-1">
-                                    {[5, 15, 0].map((d) => (
-                                        <button 
-                                          key={d} 
-                                          type="button" 
-                                          onClick={() => setDeadlineDays(d)} 
-                                          className={`px-4 py-2.5 rounded-xl font-black text-[10px] uppercase transition-all border ${deadlineDays === d ? 'bg-primary border-primary text-white shadow-lg' : 'bg-white dark:bg-bg-dark border-gray-100 dark:border-gray-700 text-gray-400'}`} 
-                                        > 
-                                          {d === 0 ? 'Nenhum' : `${d} dias`} 
-                                        </button>
-                                    ))}
-                                </div>
+                              <div>
+                                  <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">{paymentMethod === 'Facilitado' ? 'SINAL RECEBIDO' : 'VALOR RECEBIDO'}</label>
+                                  <div className="relative">
+                                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 font-bold text-xs">R$</span>
+                                      <input type="text" inputMode="numeric" value={depositStr} onChange={(e) => setDepositStr(formatCurrencyInput(e.target.value))} className={`w-full pl-10 pr-4 py-3 rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-bg-dark text-gray-800 dark:text-white focus:ring-2 ${focusRingClass} outline-none transition-all font-bold`} placeholder="0,00" />
+                                  </div>
                               </div>
                           </div>
-                        )}
-                      </>
-                  )}
-              </div>
 
-              {isPalestraMode && (
+                          {paymentMethod === 'Facilitado' && (
+                            <div className="pt-2 animate-fade-in">
+                                <label className="block text-[10px] font-black text-primary dark:text-blue-300 uppercase tracking-widest mb-2">Frequência de Pagamento</label>
+                                <div className="grid grid-cols-3 gap-2">
+                                    <button type="button" onClick={() => setPaymentFrequency('weekly')} className={`py-2.5 rounded-xl text-[10px] font-black uppercase transition-all border ${paymentFrequency === 'weekly' ? 'bg-primary border-primary text-white shadow-lg' : 'bg-gray-50 border-gray-100 text-gray-400'}`}>Semanal</button>
+                                    <button type="button" onClick={() => setPaymentFrequency('biweekly')} className={`py-2.5 rounded-xl text-[10px] font-black uppercase transition-all border ${paymentFrequency === 'biweekly' ? 'bg-primary border-primary text-white shadow-lg' : 'bg-gray-50 border-gray-100 text-gray-400'}`}>Quinzenal</button>
+                                    <button type="button" onClick={() => setPaymentFrequency(undefined)} className={`py-2.5 rounded-xl text-[10px] font-black uppercase transition-all border ${paymentFrequency === undefined ? 'bg-primary border-primary text-white shadow-lg' : 'bg-gray-50 border-gray-100 text-gray-400'}`}>Nenhum</button>
+                                </div>
+                                
+                                <div className="animate-fade-in mt-4">
+                                  <label className="block text-[10px] font-black text-primary dark:text-blue-300 uppercase tracking-widest mb-2">Quitar até quantos dias antes?</label>
+                                  <div className="flex gap-4 mb-1">
+                                      {[5, 15, 0].map((d) => (
+                                          <button 
+                                            key={d} 
+                                            type="button" 
+                                            onClick={() => setDeadlineDays(d)} 
+                                            className={`px-4 py-2.5 rounded-xl font-black text-[10px] uppercase transition-all border ${deadlineDays === d ? 'bg-primary border-primary text-white shadow-lg' : 'bg-white dark:bg-bg-dark border-gray-100 dark:border-gray-700 text-gray-400'}`} 
+                                          > 
+                                            {d === 0 ? 'Nenhum' : `${d} dias`} 
+                                          </button>
+                                      ))}
+                                  </div>
+                                </div>
+                            </div>
+                          )}
+                        </>
+                    )}
+                </div>
+              )}
+
+              {!(isPalestraMode && palestraType === 'MEU') && (
                 <div className="bg-white dark:bg-surface-dark p-4 rounded-2xl shadow-sm animate-fade-in">
                   <div className="flex items-center gap-3">
                     <input 
@@ -488,7 +508,7 @@ export const AddEventModal: React.FC<AddEventModalProps> = ({
                       id="includeInAnnualRevenue"
                       checked={includeInAnnualRevenue}
                       onChange={(e) => setIncludeInAnnualRevenue(e.target.checked)}
-                      className="w-5 h-5 text-sky-500 rounded border-gray-300 focus:ring-sky-500 cursor-pointer flex-shrink-0"
+                      className={`w-5 h-5 rounded border-gray-300 focus:ring-2 cursor-pointer flex-shrink-0 ${isPalestraMode ? 'text-sky-500 focus:ring-sky-500' : 'text-primary focus:ring-primary'}`}
                     />
                     <label htmlFor="includeInAnnualRevenue" className="text-[10px] sm:text-[11px] font-black text-gray-800 dark:text-white uppercase tracking-widest cursor-pointer truncate">
                       Adicionar ao Faturamento Anual
