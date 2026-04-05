@@ -161,6 +161,7 @@ function App() {
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [deleteData, setDeleteData] = useState<{ isOpen: boolean, eventId: string | null }>({ isOpen: false, eventId: null });
   const [quickAddMaterialConfirm, setQuickAddMaterialConfirm] = useState<{ isOpen: boolean, eventId: string, name: string, cost: number } | null>(null);
+  const [quickRemoveMaterialConfirm, setQuickRemoveMaterialConfirm] = useState<{ isOpen: boolean, eventId: string, materialId: string, materialName: string } | null>(null);
   const [deleteStudentData, setDeleteStudentData] = useState<{ isOpen: boolean, studentId: string | null }>({ isOpen: false, studentId: null });
   const [shareData, setShareData] = useState<{ isOpen: boolean, event: CalendarEvent | null }>({ isOpen: false, event: null });
   const [isStudentModalOpen, setIsStudentModalOpen] = useState(false);
@@ -172,8 +173,8 @@ function App() {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [dashboardDate, setDashboardDate] = useState(new Date());
   const [showDashboardRevenue, setShowDashboardRevenue] = useState(false);
-  const [dashboardTab, setDashboardTab] = useState<'cursos' | 'palestras'>('cursos');
-  const [dashboardPeriod, setDashboardPeriod] = useState<'month' | 'day'>('month');
+  const [dashboardPeriod, setDashboardPeriod] = useState<'month' | 'day'>('day');
+  const [eventFilter, setEventFilter] = useState<'cursos' | 'palestras'>('cursos');
   const [searchTerm, setSearchTerm] = useState('');
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [highlightEventId, setHighlightEventId] = useState<string | null>(null);
@@ -234,7 +235,7 @@ function App() {
       const dateB = b.date ? new Date(b.date).getTime() : 0;
       return dateA - dateB;
     });
-  }, [allEvents, lectureModels, dashboardTab]);
+  }, [allEvents, lectureModels]);
 
   const currentDayEventsCount = useMemo(() => {
     return allEvents.filter(e => { 
@@ -254,11 +255,9 @@ function App() {
       eEnd.setDate(eDate.getDate() + durationNum);
 
       const isWithinRange = sDate >= eDate && sDate < eEnd;
-      const isPal = (e.palestraType || e.title === 'Palestra' || e.title === 'Workshop' || lectureModels.some(m => m.name === e.title)); 
-      const matchesTab = dashboardTab === 'palestras' ? isPal : !isPal; 
-      return isWithinRange && matchesTab; 
+      return isWithinRange; 
     }).length;
-  }, [allEvents, selectedDate, dashboardTab, lectureModels]);
+  }, [allEvents, selectedDate, lectureModels]);
 
   const handleLogin = (user: string, pass: string) => { 
     if (user === credentials.user && pass === credentials.pass) { 
@@ -285,6 +284,19 @@ function App() {
     const uniqueId = editingEvent?.id || generateId();
     const basePath = isLecNow ? 'palestras_v1' : 'v1/appointments';
 
+    let finalMaterials = eventData.materials || editingEvent?.materials;
+    if (isNew && !isLecNow && !finalMaterials) {
+      const courseConfig = courseTypes.find(c => c.name === eventData.title);
+      if (courseConfig?.defaultMaterials) {
+        finalMaterials = courseConfig.defaultMaterials.map(m => ({
+          id: generateId(),
+          name: m.name,
+          checked: true, // Set to true by default as requested
+          cost: 0
+        }));
+      }
+    }
+
     if (!isNew && editingEvent) {
       const wasLec = editingEvent.title === 'Palestra' || editingEvent.title === 'Workshop' || lectureModels.some(m => m.name === editingEvent.title);
       if (wasLec !== isLecNow) await api.delete(`${wasLec ? 'palestras_v1' : 'v1/appointments'}/${editingEvent.id}`);
@@ -295,6 +307,7 @@ function App() {
       ...eventData, 
       id: uniqueId, 
       date: date.toISOString(),
+      materials: finalMaterials,
       payments: eventData.payments?.map(p => ({...p, date: p.date instanceof Date ? p.date.toISOString() : p.date })) || [],
       createdAt: editingEvent?.createdAt instanceof Date ? editingEvent.createdAt.toISOString() : (editingEvent?.createdAt || new Date().toISOString())
     };
@@ -358,7 +371,7 @@ function App() {
       return;
     }
 
-    const newMaterial: MaterialItem = { id: generateId(), name, checked: !!event.abateExpenses, cost };
+    const newMaterial: MaterialItem = { id: generateId(), name, checked: true, cost };
     const updatedMaterials = [...(event.materials || []), newMaterial];
     await api.put(`palestras_v1/${eventId}`, { ...event, materials: updatedMaterials, date: event.date?.toISOString(), payments: event.payments?.map(p => ({...p, date: p.date instanceof Date ? p.date.toISOString() : p.date })) });
     refreshData();
@@ -385,7 +398,7 @@ function App() {
         // Check if material already exists by name
         const exists = (e.materials || []).some(m => m.name.toLowerCase() === name.toLowerCase());
         if (!exists) {
-          const newMaterial: MaterialItem = { id: generateId(), name, checked: false, cost };
+          const newMaterial: MaterialItem = { id: generateId(), name, checked: true, cost };
           const updatedMaterials = [...(e.materials || []), newMaterial];
           const path = (e.title === 'Palestra' || e.title === 'Workshop' || lectureModels.some(m => m.name === e.title)) ? 'palestras_v1' : 'v1/appointments';
           await api.put(`${path}/${e.id}`, { ...e, materials: updatedMaterials, date: e.date?.toISOString(), payments: e.payments?.map(p => ({...p, date: p.date instanceof Date ? p.date.toISOString() : p.date })) });
@@ -393,7 +406,7 @@ function App() {
       }
     } else {
       // Apply only to this event
-      const newMaterial: MaterialItem = { id: generateId(), name, checked: false, cost };
+      const newMaterial: MaterialItem = { id: generateId(), name, checked: true, cost };
       const updatedMaterials = [...(event.materials || []), newMaterial];
       const path = (event.title === 'Palestra' || event.title === 'Workshop' || lectureModels.some(m => m.name === event.title)) ? 'palestras_v1' : 'v1/appointments';
       await api.put(`${path}/${eventId}`, { ...event, materials: updatedMaterials, date: event.date?.toISOString(), payments: event.payments?.map(p => ({...p, date: p.date instanceof Date ? p.date.toISOString() : p.date })) });
@@ -403,12 +416,71 @@ function App() {
     refreshData();
   };
 
-  const handleRemoveMaterial = async (eventId: string, materialId: string) => {
+  const handleUpdateMaterial = async (eventId: string, materialId: string, name: string, cost: number) => {
     const event = allEvents.find(e => e.id === eventId);
     if (!event || !event.materials) return;
+    
+    const updatedMaterials = event.materials.map(m => 
+      m.id === materialId ? { ...m, name, cost } : m
+    );
+    
+    const isLec = (event.title === 'Palestra' || event.title === 'Workshop' || lectureModels.some(m => m.name === event.title));
+    const path = isLec ? 'palestras_v1' : 'v1/appointments';
+    
+    await api.put(`${path}/${eventId}`, { 
+      ...event, 
+      materials: updatedMaterials, 
+      date: event.date?.toISOString(), 
+      payments: event.payments?.map(p => ({...p, date: p.date instanceof Date ? p.date.toISOString() : p.date })) 
+    });
+    refreshData();
+  };
+
+  const handleRemoveMaterial = async (eventId: string, materialId: string, materialName?: string) => {
+    const event = allEvents.find(e => e.id === eventId);
+    if (!event || !event.materials) return;
+    
+    const isLec = (event.title === 'Palestra' || event.title === 'Workshop' || lectureModels.some(m => m.name === event.title));
+    
+    if (!isLec && materialName) {
+      setQuickRemoveMaterialConfirm({ isOpen: true, eventId, materialId, materialName });
+      return;
+    }
+
     const updatedMaterials = event.materials.filter(m => m.id !== materialId);
-    const path = (event.title === 'Palestra' || event.title === 'Workshop' || lectureModels.some(m => m.name === event.title)) ? 'palestras_v1' : 'v1/appointments';
+    const path = isLec ? 'palestras_v1' : 'v1/appointments';
     await api.put(`${path}/${eventId}`, { ...event, materials: updatedMaterials, date: event.date?.toISOString(), payments: event.payments?.map(p => ({...p, date: p.date instanceof Date ? p.date.toISOString() : p.date })) });
+    refreshData();
+  };
+
+  const confirmQuickRemoveMaterial = async (applyToAll: boolean) => {
+    if (!quickRemoveMaterialConfirm) return;
+    const { eventId, materialId, materialName } = quickRemoveMaterialConfirm;
+    const event = allEvents.find(e => e.id === eventId);
+    if (!event) return;
+
+    if (applyToAll && event.date) {
+      const eventDate = new Date(event.date);
+      const eventsToUpdate = allEvents.filter(e => {
+        if (!e.date) return false;
+        const d = new Date(e.date);
+        return d.getDate() === eventDate.getDate() && 
+               d.getMonth() === eventDate.getMonth() && 
+               d.getFullYear() === eventDate.getFullYear();
+      });
+
+      for (const e of eventsToUpdate) {
+        const updatedMaterials = (e.materials || []).filter(m => m.name.toLowerCase() !== materialName.toLowerCase());
+        const path = (e.title === 'Palestra' || e.title === 'Workshop' || lectureModels.some(m => m.name === e.title)) ? 'palestras_v1' : 'v1/appointments';
+        await api.put(`${path}/${e.id}`, { ...e, materials: updatedMaterials, date: e.date?.toISOString(), payments: e.payments?.map(p => ({...p, date: p.date instanceof Date ? p.date.toISOString() : p.date })) });
+      }
+    } else {
+      const updatedMaterials = (event.materials || []).filter(m => m.id !== materialId);
+      const path = (event.title === 'Palestra' || event.title === 'Workshop' || lectureModels.some(m => m.name === event.title)) ? 'palestras_v1' : 'v1/appointments';
+      await api.put(`${path}/${eventId}`, { ...event, materials: updatedMaterials, date: event.date?.toISOString(), payments: event.payments?.map(p => ({...p, date: p.date instanceof Date ? p.date.toISOString() : p.date })) });
+    }
+
+    setQuickRemoveMaterialConfirm(null);
     refreshData();
   };
 
@@ -490,8 +562,7 @@ function App() {
             }
             
             if (!isWithinPeriod) return false;
-            const isPal = (e.palestraType || e.title === 'Palestra' || e.title === 'Workshop' || lectureModels.some(m => m.name === e.title));
-            return dashboardTab === 'palestras' ? isPal : !isPal;
+            return true;
         });
 
         const totalFaturamento = dashboardFilteredEvents.reduce((a, c) => {
@@ -530,30 +601,21 @@ function App() {
                     // For manual expenses, we just check if it matches the exact selected day
                     isWithinPeriod = d.getDate() === selectedDate.getDate() && d.getMonth() === selectedDate.getMonth() && d.getFullYear() === selectedDate.getFullYear();
                 }
-                return isWithinPeriod && (exp.category === (dashboardTab === 'palestras' ? 'palestras' : 'cursos'));
+                return isWithinPeriod;
             })
             .reduce((a, c) => a + (parseCurrency(c.amount) || 0), 0);
 
-        // Gastos de checklist dos eventos do mês atual
+        // Gastos de checklist dos eventos do mês atual - Sempre soma e abate do líquido conforme pedido
         const checklistExpensesSum = dashboardFilteredEvents.reduce((acc, event) => {
-            const isPal = (event.palestraType || event.title === 'Palestra' || event.title === 'Workshop' || lectureModels.some(m => m.name === event.title));
-            const shouldAbate = isPal && !!event.abateExpenses && event.palestraType !== 'MEU';
-            
-            if (isPal && event.palestraType !== 'MEU' && !shouldAbate) {
-                return acc; // Não abate do líquido se não for MEU e não tiver abate marcado
-            }
-            
-            const materials = isPal ? (event.materials || []) : (event.materials || []).filter(m => m.checked);
+            const materials = event.materials || [];
             const matCost = materials.reduce((s, m) => s + (parseCurrency(m.cost) || 0), 0);
             return acc + matCost;
         }, 0);
 
         const totalExpenses = manualExpensesSum + checklistExpensesSum;
         
-        // CORREÇÃO: Líquido
-        const totalLiquid = dashboardTab === 'palestras' 
-            ? totalFaturamento - totalExpenses 
-            : totalReceived - totalExpenses;
+        // CORREÇÃO: Líquido (Sempre Recebido - Despesas)
+        const totalLiquid = totalReceived - totalExpenses;
 
         const totalStudents = dashboardFilteredEvents.reduce((acc, event) => acc + (event.studentCount || 0), 0);
 
@@ -591,53 +653,47 @@ function App() {
                 });
                 if (eventsOnDay.length > 0) {
                   const hasPalestra = eventsOnDay.some(e => e.title === 'Palestra' || e.title === 'Workshop' || lectureModels.some(m => m.name === e.title));
-                  setDashboardTab(hasPalestra ? 'palestras' : 'cursos');
                 }
               }} 
               onMonthChange={(newMonthDate) => setDashboardDate(newMonthDate)}
               events={allEvents} 
               courseTypes={courseTypes}
               lectureModels={lectureModels}
-              activeTab={dashboardTab}
             />
             <div className="px-4 mb-2">
                 <div className="bg-white dark:bg-surface-dark rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 p-4">
                     <div className="flex items-center justify-between mb-4 pb-4 border-b border-gray-50 dark:border-gray-800">
-                        <div className="flex bg-gray-100 dark:bg-white/5 p-1 rounded-full border border-gray-200 dark:border-gray-800 shadow-inner">
-                            <button onClick={() => setDashboardTab('cursos')} className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase transition-all ${dashboardTab === 'cursos' ? 'bg-primary text-white' : 'text-gray-400'}`}>Cursos</button>
-                            <button onClick={() => setDashboardTab('palestras')} className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase transition-all ${dashboardTab === 'palestras' ? 'bg-sky-500 text-white' : 'text-gray-400'}`}>Palestras</button>
+                        <div className="flex items-center gap-2">
+                            <div className="flex bg-gray-100 dark:bg-white/5 p-1 rounded-full border border-gray-200 dark:border-gray-800 shadow-inner">
+                                <button onClick={() => setDashboardPeriod('day')} className={`px-2 py-1 rounded-full text-[8px] font-black uppercase transition-all ${dashboardPeriod === 'day' ? 'bg-primary text-white' : 'text-gray-400'}`}>Dia</button>
+                                <button onClick={() => setDashboardPeriod('month')} className={`px-2 py-1 rounded-full text-[8px] font-black uppercase transition-all ${dashboardPeriod === 'month' ? 'bg-primary text-white' : 'text-gray-400'}`}>Mês</button>
+                            </div>
+                            <div className="bg-gray-100 dark:bg-white/5 px-2 py-1 rounded-full font-black text-[9px] uppercase text-gray-600 dark:text-gray-300">
+                                {dashboardPeriod === 'month' 
+                                    ? dashboardDate.toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' }).toUpperCase()
+                                    : selectedDate.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' }).toUpperCase()}
+                            </div>
                         </div>
-                        <button onClick={() => setShowDashboardRevenue(!showDashboardRevenue)} className="text-gray-400 hover:text-primary transition-colors p-2">{showDashboardRevenue ? <EyeOffIcon className="w-5 h-5" /> : <EyeIcon className="w-5 h-5" />}</button>
-                    </div>
-                    <div className="flex justify-between items-center mb-5">
-                        <div className="flex bg-gray-100 dark:bg-white/5 p-1 rounded-full border border-gray-200 dark:border-gray-800 shadow-inner">
-                            <button onClick={() => setDashboardPeriod('day')} className={`px-3 py-1 rounded-full text-[9px] font-black uppercase transition-all ${dashboardPeriod === 'day' ? (dashboardTab === 'palestras' ? 'bg-sky-500 text-white' : 'bg-primary text-white') : 'text-gray-400'}`}>Dia</button>
-                            <button onClick={() => setDashboardPeriod('month')} className={`px-3 py-1 rounded-full text-[9px] font-black uppercase transition-all ${dashboardPeriod === 'month' ? (dashboardTab === 'palestras' ? 'bg-sky-500 text-white' : 'bg-primary text-white') : 'text-gray-400'}`}>Mês</button>
-                        </div>
-                        <div className="bg-gray-100 dark:bg-white/5 px-3 py-1.5 rounded-full font-black text-[10px] uppercase text-gray-600 dark:text-gray-300">
-                            {dashboardPeriod === 'month' 
-                                ? dashboardDate.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' }).toUpperCase()
-                                : selectedDate.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' }).toUpperCase()}
-                        </div>
+                        <button onClick={() => setShowDashboardRevenue(!showDashboardRevenue)} className="text-gray-400 hover:text-primary transition-colors p-1">{showDashboardRevenue ? <EyeOffIcon className="w-5 h-5" /> : <EyeIcon className="w-5 h-5" />}</button>
                     </div>
                     <div className="grid grid-cols-4 gap-1 divide-x divide-gray-100 pt-1 text-center">
                         <div className="px-1">
                           <p className="text-[8px] font-black text-gray-400 uppercase mb-1 truncate">
-                            {dashboardTab === 'palestras' ? 'Cursos Vendidos' : 'Faturamento'}
+                            Faturamento
                           </p>
-                          <p className={`font-black text-[11px] ${dashboardTab === 'palestras' ? 'text-sky-500' : 'text-gray-800 dark:text-white'}`}>
+                          <p className="font-black text-[11px] text-gray-800 dark:text-white">
                             {showDashboardRevenue 
-                              ? (dashboardTab === 'palestras' ? totalStudents : `R$ ${totalFaturamento.toLocaleString('pt-BR')}`) 
-                              : (dashboardTab === 'palestras' ? '---' : 'R$ ---')}
+                              ? `R$ ${totalFaturamento.toLocaleString('pt-BR')}` 
+                              : 'R$ ---'}
                           </p>
                         </div>
                         <div className="px-1">
                           <p className="text-[8px] font-black text-gray-400 uppercase mb-1 truncate">
-                            {dashboardTab === 'palestras' ? 'Faturamento' : 'Pendente'}
+                            Pendente
                           </p>
-                          <p className={`font-black text-[11px] ${dashboardTab === 'palestras' ? 'text-gray-800 dark:text-white' : 'text-red-500'}`}>
+                          <p className="font-black text-[11px] text-red-500">
                             {showDashboardRevenue 
-                              ? (dashboardTab === 'palestras' ? `R$ ${totalFaturamento.toLocaleString('pt-BR')}` : `R$ ${totalPending.toLocaleString('pt-BR')}`) 
+                              ? `R$ ${totalPending.toLocaleString('pt-BR')}` 
                               : 'R$ ---'}
                           </p>
                         </div>
@@ -646,7 +702,23 @@ function App() {
                     </div>
                 </div>
             </div>
-            <UnifiedSearch searchTerm={searchTerm} onSearchChange={setSearchTerm} activeTab={dashboardTab} onTabChange={setDashboardTab} allEvents={allEvents} courseTypes={courseTypes} onResultClick={(e) => { if(e.date) setSelectedDate(new Date(e.date)); const isPal = (e.title === 'Palestra' || e.title === 'Workshop' || lectureModels.some(m => m.name === e.title)); setDashboardTab(isPal ? 'palestras' : 'cursos'); setSearchTerm(''); }} />
+            <div className="px-4 mb-4">
+              <div className="flex bg-gray-100 dark:bg-white/5 p-1 rounded-xl border border-gray-200 dark:border-gray-800 shadow-inner">
+                <button 
+                  onClick={() => setEventFilter('cursos')} 
+                  className={`flex-1 py-2 rounded-lg text-[10px] font-black uppercase transition-all ${eventFilter === 'cursos' ? 'bg-primary text-white shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}
+                >
+                  Cursos
+                </button>
+                <button 
+                  onClick={() => setEventFilter('palestras')} 
+                  className={`flex-1 py-2 rounded-lg text-[10px] font-black uppercase transition-all ${eventFilter === 'palestras' ? 'bg-primary text-white shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}
+                >
+                  Palestras
+                </button>
+              </div>
+            </div>
+            <UnifiedSearch searchTerm={searchTerm} onSearchChange={setSearchTerm} allEvents={allEvents} courseTypes={courseTypes} onResultClick={(e) => { if(e.date) setSelectedDate(new Date(e.date)); setSearchTerm(''); }} />
             <EventList 
               date={selectedDate} 
               events={allEvents.filter(e => { 
@@ -666,9 +738,10 @@ function App() {
                 eEnd.setDate(eDate.getDate() + durationNum);
 
                 const isWithinRange = sDate >= eDate && sDate < eEnd;
-                const isPal = (e.palestraType || e.title === 'Palestra' || e.title === 'Workshop' || lectureModels.some(m => m.name === e.title)); 
-                const matchesTab = dashboardTab === 'palestras' ? isPal : !isPal; 
-                return isWithinRange && matchesTab; 
+                if (!isWithinRange) return false;
+
+                const isPal = (e.palestraType || e.title === 'Palestra' || e.title === 'Workshop' || lectureModels.some(m => m.name === e.title));
+                return eventFilter === 'palestras' ? isPal : !isPal;
               }).sort((a, b) => (b.createdAt ? new Date(b.createdAt).getTime() : 0) - (a.createdAt ? new Date(a.createdAt).getTime() : 0))} 
               onDeleteEvent={(id) => setDeleteData({ isOpen: true, eventId: id })} 
               onAddPayment={(e) => { setSelectedEventForPayment(e); setIsPaymentModalOpen(true); }} 
@@ -677,6 +750,7 @@ function App() {
               onToggleMaterial={handleToggleMaterial} 
               onToggleAbate={handleToggleAbate} 
               onQuickAddMaterial={handleQuickAddMaterial} 
+              onUpdateMaterial={handleUpdateMaterial}
               onRemoveMaterial={handleRemoveMaterial} 
               onQuickInstallmentPaid={(e, inst) => {
                 setSelectedEventForPayment(e);
@@ -687,14 +761,15 @@ function App() {
               onShareFinancialSummary={handleShareFinancialSummary}
               courseTypes={courseTypes} 
               lectureModels={lectureModels} 
-              hideCount={dashboardTab === 'palestras'}
+              hideCount={false}
               allEvents={allEvents}
               highlightEventId={highlightEventId}
+              filterMode={eventFilter}
             />
           </>
         );
       }
-      case AppView.ALL_EVENTS: return <AllEventsList events={allEvents} courseTypes={courseTypes} lectureModels={lectureModels} onEventClick={(e) => { if(e.date) setSelectedDate(new Date(e.date)); const isPal = (e.title === 'Palestra' || e.title === 'Workshop' || lectureModels.some(m => m.name === e.title)); setDashboardTab(isPal ? 'palestras' : 'cursos'); setCurrentView(AppView.HOME); }} />;
+      case AppView.ALL_EVENTS: return <AllEventsList events={allEvents} courseTypes={courseTypes} lectureModels={lectureModels} onEventClick={(e) => { if(e.date) setSelectedDate(new Date(e.date)); setCurrentView(AppView.HOME); }} />;
       case AppView.LECTURE_MODELS: return <LectureModelManager models={lectureModels} onAdd={(m) => api.put('v1/lecture_models/' + m.id, m).then(refreshData)} onRemove={(id) => api.delete('v1/lecture_models/' + id).then(refreshData)} onSaveOrder={handleSaveLectureOrder} />;
       case AppView.STUDENTS: return <StudentsList students={students} onEdit={(s) => { setEditingStudent(s); setIsStudentModalOpen(true); }} onDelete={(id) => setDeleteStudentData({ isOpen: true, studentId: id })} />;
       case AppView.HISTORY: return <HistoryScreen events={allEvents} courseTypes={courseTypes} />;
@@ -751,9 +826,7 @@ function App() {
                           key={evt.id}
                           onClick={() => {
                             if (evt.date) {
-                              const isPal = (evt.palestraType || evt.title === 'Palestra' || evt.title === 'Workshop' || lectureModels.some(m => m.name === evt.title));
                               setSelectedDate(new Date(evt.date));
-                              setDashboardTab(isPal ? 'palestras' : 'cursos');
                               setHighlightEventId(evt.id);
                               setCurrentView(AppView.HOME);
                               setIsNotificationsOpen(false);
@@ -870,6 +943,37 @@ function App() {
       }} />
       <ConfirmationModal isOpen={deleteData.isOpen} onClose={() => setDeleteData({isOpen: false, eventId: null})} onConfirm={executeDelete} title="Excluir Agendamento" message="" />
       
+      {quickRemoveMaterialConfirm?.isOpen && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in">
+          <div className="bg-white dark:bg-surface-dark rounded-3xl p-6 w-full max-w-sm shadow-2xl border border-gray-100 dark:border-gray-800 animate-slide-up">
+            <h3 className="text-lg font-black text-gray-900 dark:text-white mb-2 uppercase tracking-tight">Remover Material</h3>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
+              Deseja remover o material <strong className="text-red-500">{quickRemoveMaterialConfirm.materialName}</strong> apenas neste agendamento ou em todos os agendamentos deste dia?
+            </p>
+            <div className="flex flex-col gap-2">
+              <button 
+                onClick={() => confirmQuickRemoveMaterial(true)}
+                className="w-full py-3 bg-red-500 text-white rounded-xl font-black uppercase tracking-widest text-xs hover:bg-red-600 transition-colors"
+              >
+                Remover de Todos
+              </button>
+              <button 
+                onClick={() => confirmQuickRemoveMaterial(false)}
+                className="w-full py-3 bg-gray-100 dark:bg-white/5 text-gray-700 dark:text-gray-300 rounded-xl font-black uppercase tracking-widest text-xs hover:bg-gray-200 dark:hover:bg-white/10 transition-colors"
+              >
+                Somente Neste
+              </button>
+              <button 
+                onClick={() => setQuickRemoveMaterialConfirm(null)}
+                className="w-full py-3 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 rounded-xl font-bold uppercase tracking-widest text-xs transition-colors mt-2"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {quickAddMaterialConfirm?.isOpen && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in">
           <div className="bg-white dark:bg-surface-dark rounded-3xl p-6 w-full max-w-sm shadow-2xl border border-gray-100 dark:border-gray-800 animate-slide-up">
