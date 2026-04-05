@@ -16,9 +16,9 @@ interface FinancialScreenProps {
 export const FinancialScreen: React.FC<FinancialScreenProps> = ({ events, annualGoal, onUpdateGoal, expenses, courseTypes, lectureModels }) => {
   const now = new Date();
   
-  const [selectedDay, setSelectedDay] = useState<number | 'all'>('all');
+  const [selectedDay, setSelectedDay] = useState<number | 'all'>(now.getDate());
   const [selectedYear, setSelectedYear] = useState(now.getFullYear());
-  const [selectedMonth, setSelectedMonth] = useState<number | 'all'>('all');
+  const [selectedMonth, setSelectedMonth] = useState<number | 'all'>(now.getMonth());
   const [filterType, setFilterType] = useState<'cursos' | 'palestras'>('cursos');
   const [touchedMonth, setTouchedMonth] = useState<number | null>(null);
 
@@ -78,7 +78,7 @@ export const FinancialScreen: React.FC<FinancialScreenProps> = ({ events, annual
 
     const checklistExpenses = filteredEvents.reduce((acc, event) => {
         const isPal = checkIfPalestra(event);
-        const materials = isPal ? (event.materials || []) : (event.materials || []).filter(m => m.checked);
+        const materials = event.materials || [];
         const matCost = materials.reduce((mAcc, m) => mAcc + parseCurrency(m.cost), 0);
         return acc + matCost;
     }, 0);
@@ -108,7 +108,7 @@ export const FinancialScreen: React.FC<FinancialScreenProps> = ({ events, annual
               data[mIndex].gross += val;
           }
           
-          const materials = isPal ? (e.materials || []) : (e.materials || []).filter(m => m.checked);
+          const materials = e.materials || [];
           const matCost = materials.reduce((mAcc, m) => mAcc + parseCurrency(m.cost), 0);
           data[mIndex].net -= matCost;
       });
