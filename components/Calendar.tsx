@@ -10,7 +10,6 @@ interface CalendarProps {
   events?: CalendarEvent[];
   courseTypes?: CourseType[];
   lectureModels?: LectureModel[];
-  activeTab?: 'cursos' | 'palestras';
 }
 
 export const Calendar: React.FC<CalendarProps> = ({ 
@@ -20,8 +19,7 @@ export const Calendar: React.FC<CalendarProps> = ({
   isDateBlocked, 
   events = [],
   courseTypes = [],
-  lectureModels = [],
-  activeTab = 'cursos'
+  lectureModels = []
 }) => {
   const [currentMonth, setCurrentMonth] = useState(new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1));
 
@@ -121,14 +119,10 @@ export const Calendar: React.FC<CalendarProps> = ({
       let dayStyle = '';
       if (blocked) {
         dayStyle = 'text-gray-300 dark:text-gray-600 cursor-not-allowed opacity-50';
-      } else if (eventType === 'palestra') {
-        dayStyle = `bg-sky-500 text-white font-black shadow-md ${isSelected ? 'ring-4 ring-sky-200 dark:ring-sky-900/50 scale-110' : ''}`;
-      } else if (eventType === 'curso') {
+      } else if (eventType === 'palestra' || eventType === 'curso') {
         dayStyle = `bg-primary text-white font-black shadow-md ${isSelected ? 'ring-4 ring-primary/30 dark:ring-blue-900/50 scale-110' : ''}`;
       } else if (isSelected) {
-        dayStyle = activeTab === 'palestras' 
-          ? 'bg-sky-500 text-white shadow-lg shadow-sky-500/30 scale-105 font-semibold'
-          : 'bg-primary text-white shadow-lg shadow-primary/30 scale-105 font-semibold';
+        dayStyle = 'bg-primary text-white shadow-lg shadow-primary/30 scale-105 font-semibold';
       } else {
         dayStyle = 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-white/10 font-medium';
       }
