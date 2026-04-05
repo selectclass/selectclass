@@ -1,8 +1,7 @@
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { CalendarEvent, CourseType, MaterialItem, LectureModel } from '../types';
-import { TrashIcon, ShareIcon, PencilIcon, AlertCircleIcon, PlusIcon, CalendarIcon, MapPinIcon, WhatsAppIcon, ClockIcon, BoxIcon, SquareIcon, CheckSquareIcon, CheckIcon, XIcon, DollarSignIcon, MailIcon, ChevronDownIcon } from './Icons';
-import { ConfirmationModal } from './ConfirmationModal';
+import { TrashIcon, ShareIcon, PencilIcon, AlertCircleIcon, PlusIcon, CalendarIcon, MapPinIcon, WhatsAppIcon, ClockIcon, BoxIcon, CheckIcon, XIcon, MailIcon } from './Icons';
 import { formatCurrencyInput, parseCurrency } from '../utils/currency';
 
 interface EventListProps {
@@ -14,7 +13,8 @@ interface EventListProps {
   onSaveEvent?: (eventData: Partial<CalendarEvent>, date: Date) => void;
   onToggleMaterial?: (eventId: string, materialId: string) => void;
   onQuickAddMaterial?: (eventId: string, name: string, cost: number) => void;
-  onRemoveMaterial?: (eventId: string, materialId: string) => void;
+  onUpdateMaterial?: (eventId: string, materialId: string, name: string, cost: number) => void;
+  onRemoveMaterial?: (eventId: string, materialId: string, materialName: string) => void;
   onShareEvent?: (event: CalendarEvent) => void;
   onToggleAbate?: (eventId: string) => void;
   onQuickInstallmentPaid?: (event: CalendarEvent, installment: number) => void;
@@ -25,6 +25,7 @@ interface EventListProps {
   hideCount?: boolean;
   allEvents?: CalendarEvent[];
   highlightEventId?: string | null;
+  filterMode?: 'cursos' | 'palestras';
 }
 
 export const EventList: React.FC<EventListProps> = ({ 
@@ -38,6 +39,7 @@ export const EventList: React.FC<EventListProps> = ({
   onRemoveMaterial,
   onShareEvent, 
   onToggleAbate,
+  onUpdateMaterial,
   onQuickInstallmentPaid,
   onDirectInstallmentPaid,
   onShareFinancialSummary,
@@ -45,14 +47,20 @@ export const EventList: React.FC<EventListProps> = ({
   lectureModels = [],
   hideCount = false,
   allEvents = [],
-  highlightEventId = null
+  highlightEventId = null,
+  filterMode = 'cursos'
 }) => {
   const [quickMaterialName, setQuickMaterialName] = useState<{ [key: string]: string }>({});
   const [quickMaterialCost, setQuickMaterialCost] = useState<{ [key: string]: string }>({});
-  const [removeConfirm, setRemoveConfirm] = useState<{ isOpen: boolean; eventId: string; materialId: string } | null>(null);
+  const [editingMaterialId, setEditingMaterialId] = useState<{ [key: string]: string | null }>({});
   const [copiedEmailId, setCopiedEmailId] = useState<string | null>(null);
-  const [expandedGroups, setExpandedGroups] = useState<string[]>([]);
+  const [activeGroup, setActiveGroup] = useState<string>('all');
   const [installmentChoice, setInstallmentChoice] = useState<{eventId: string, installment: number} | null>(null);
+  
+  // Reset activeGroup when filterMode changes
+  useEffect(() => {
+    setActiveGroup('all');
+  }, [filterMode]);
   
   const eventRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
   const lastScrolledRef = useRef<{ id: string | null; date: string | null }>({ id: null, date: null });
@@ -108,7 +116,7 @@ export const EventList: React.FC<EventListProps> = ({
         }
 
         // Expand the group
-        setExpandedGroups(prev => prev.includes(group) ? prev : [...prev, group]);
+        setActiveGroup(group);
 
         // Small delay to allow expansion to render
         setTimeout(() => {
@@ -142,13 +150,6 @@ export const EventList: React.FC<EventListProps> = ({
     }
   }, [date, highlightEventId, events]);
 
-  const isPalestraTarget = useMemo(() => {
-    if (!removeConfirm) return false;
-    const targetEvent = events.find(e => e.id === removeConfirm.eventId);
-    if (!targetEvent) return false;
-    return checkIfPalestra(targetEvent);
-  }, [removeConfirm, events, courseTypes, lectureModels]);
-
   const weekday = date.toLocaleDateString('pt-BR', { weekday: 'long' });
   const day = date.getDate();
   const month = date.toLocaleDateString('pt-BR', { month: 'long' });
@@ -158,17 +159,23 @@ export const EventList: React.FC<EventListProps> = ({
   const handleQuickAdd = (eventId: string) => {
     const name = quickMaterialName[eventId];
     const cost = parseCurrency(quickMaterialCost[eventId] || '0');
-    if (name && onQuickAddMaterial) {
-      onQuickAddMaterial(eventId, name, cost);
+    const materialId = editingMaterialId[eventId];
+
+    if (name) {
+      if (materialId && onUpdateMaterial) {
+        onUpdateMaterial(eventId, materialId, name, cost);
+      } else if (onQuickAddMaterial) {
+        onQuickAddMaterial(eventId, name, cost);
+      }
+      
       setQuickMaterialName({ ...quickMaterialName, [eventId]: '' });
       setQuickMaterialCost({ ...quickMaterialCost, [eventId]: '' });
+      setEditingMaterialId({ ...editingMaterialId, [eventId]: null });
     }
   };
 
   const toggleGroup = (group: string) => {
-    setExpandedGroups(prev => 
-      prev.includes(group) ? prev.filter(g => g !== group) : [...prev, group]
-    );
+    setActiveGroup(group);
   };
 
   const groupedEvents = useMemo(() => {
@@ -224,67 +231,68 @@ export const EventList: React.FC<EventListProps> = ({
       <h3 className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-[0.2em] mb-1 text-center">
         {formattedFullDate}
       </h3>
-      {!hideCount && (
+      {!hideCount && filterMode === 'cursos' && (
         <div className="mb-8 space-y-3">
           <div className="text-[14px] font-black text-primary dark:text-blue-300 uppercase tracking-[0.2em] mb-4 text-center">
             {events.length} {events.length === 1 ? 'Agendamento' : 'Agendamentos'}
           </div>
           
-          <div className="grid grid-cols-1 gap-2 px-2">
+          <div className="grid grid-cols-4 gap-1.5 px-1">
+            <button 
+              onClick={() => toggleGroup('all')}
+              className={`flex flex-col items-center justify-center p-2 rounded-xl border transition-all ${activeGroup === 'all' ? 'bg-primary/10 border-primary/30' : 'bg-white dark:bg-surface-dark border-gray-100 dark:border-gray-800'}`}
+            >
+              <div className={`w-6 h-6 rounded-full flex items-center justify-center font-black text-[11px] mb-1 ${activeGroup === 'all' ? 'bg-primary text-white' : 'bg-gray-100 dark:bg-white/5 text-gray-400'}`}>
+                {events.length}
+              </div>
+              <span className={`text-[10px] font-black uppercase tracking-tighter text-center leading-tight ${activeGroup === 'all' ? 'text-primary dark:text-blue-300' : 'text-gray-500'}`}>
+                Todos
+              </span>
+            </button>
+
             <button 
               onClick={() => toggleGroup('zero')}
-              className={`w-full flex items-center justify-between p-4 rounded-xl border transition-all ${expandedGroups.includes('zero') ? 'bg-primary/10 border-primary/30' : 'bg-white dark:bg-surface-dark border-gray-100 dark:border-gray-800'}`}
+              className={`flex flex-col items-center justify-center p-2 rounded-xl border transition-all ${activeGroup === 'zero' ? 'bg-primary/10 border-primary/30' : 'bg-white dark:bg-surface-dark border-gray-100 dark:border-gray-800'}`}
             >
-              <div className="flex items-center gap-3">
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center font-black text-xs ${expandedGroups.includes('zero') ? 'bg-primary text-white' : 'bg-gray-100 dark:bg-white/5 text-gray-400'}`}>
-                  {groupedEvents.zero.length}
-                </div>
-                <span className={`text-[10px] font-black uppercase tracking-widest ${expandedGroups.includes('zero') ? 'text-primary dark:text-blue-300' : 'text-gray-500'}`}>
-                  Apenas Sinal
-                </span>
+              <div className={`w-6 h-6 rounded-full flex items-center justify-center font-black text-[11px] mb-1 ${activeGroup === 'zero' ? 'bg-primary text-white' : 'bg-gray-100 dark:bg-white/5 text-gray-400'}`}>
+                {groupedEvents.zero.length}
               </div>
-              <ChevronDownIcon className={`w-4 h-4 transition-transform ${expandedGroups.includes('zero') ? 'rotate-180 text-primary' : 'text-gray-400'}`} />
+              <span className={`text-[10px] font-black uppercase tracking-tighter text-center leading-tight ${activeGroup === 'zero' ? 'text-primary dark:text-blue-300' : 'text-gray-500'}`}>
+                Sinal
+              </span>
             </button>
 
             <button 
               onClick={() => toggleGroup('partial')}
-              className={`w-full flex items-center justify-between p-4 rounded-xl border transition-all ${expandedGroups.includes('partial') ? 'bg-primary/10 border-primary/30' : 'bg-white dark:bg-surface-dark border-gray-100 dark:border-gray-800'}`}
+              className={`flex flex-col items-center justify-center p-2 rounded-xl border transition-all ${activeGroup === 'partial' ? 'bg-primary/10 border-primary/30' : 'bg-white dark:bg-surface-dark border-gray-100 dark:border-gray-800'}`}
             >
-              <div className="flex items-center gap-3">
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center font-black text-xs ${expandedGroups.includes('partial') ? 'bg-primary text-white' : 'bg-gray-100 dark:bg-white/5 text-gray-400'}`}>
-                  {groupedEvents.partial.length}
-                </div>
-                <span className={`text-[10px] font-black uppercase tracking-widest ${expandedGroups.includes('partial') ? 'text-primary dark:text-blue-300' : 'text-gray-500'}`}>
-                  Pagamento Parcial
-                </span>
+              <div className={`w-6 h-6 rounded-full flex items-center justify-center font-black text-[11px] mb-1 ${activeGroup === 'partial' ? 'bg-primary text-white' : 'bg-gray-100 dark:bg-white/5 text-gray-400'}`}>
+                {groupedEvents.partial.length}
               </div>
-              <ChevronDownIcon className={`w-4 h-4 transition-transform ${expandedGroups.includes('partial') ? 'rotate-180 text-primary' : 'text-gray-400'}`} />
+              <span className={`text-[10px] font-black uppercase tracking-tighter text-center leading-tight ${activeGroup === 'partial' ? 'text-primary dark:text-blue-300' : 'text-gray-500'}`}>
+                Parcial
+              </span>
             </button>
 
             <button 
               onClick={() => toggleGroup('paid')}
-              className={`w-full flex items-center justify-between p-4 rounded-xl border transition-all ${expandedGroups.includes('paid') ? 'bg-primary/10 border-primary/30' : 'bg-white dark:bg-surface-dark border-gray-100 dark:border-gray-800'}`}
+              className={`flex flex-col items-center justify-center p-2 rounded-xl border transition-all ${activeGroup === 'paid' ? 'bg-primary/10 border-primary/30' : 'bg-white dark:bg-surface-dark border-gray-100 dark:border-gray-800'}`}
             >
-              <div className="flex items-center gap-3">
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center font-black text-xs ${expandedGroups.includes('paid') ? 'bg-primary text-white' : 'bg-gray-100 dark:bg-white/5 text-gray-400'}`}>
-                  {groupedEvents.paid.length}
-                </div>
-                <span className={`text-[10px] font-black uppercase tracking-widest ${expandedGroups.includes('paid') ? 'text-primary dark:text-blue-300' : 'text-gray-500'}`}>
-                  Curso Pago
-                </span>
+              <div className={`w-6 h-6 rounded-full flex items-center justify-center font-black text-[11px] mb-1 ${activeGroup === 'paid' ? 'bg-primary text-white' : 'bg-gray-100 dark:bg-white/5 text-gray-400'}`}>
+                {groupedEvents.paid.length}
               </div>
-              <ChevronDownIcon className={`w-4 h-4 transition-transform ${expandedGroups.includes('paid') ? 'rotate-180 text-primary' : 'text-gray-400'}`} />
+              <span className={`text-[10px] font-black uppercase tracking-tighter text-center leading-tight ${activeGroup === 'paid' ? 'text-primary dark:text-blue-300' : 'text-gray-500'}`}>
+                Pago
+              </span>
             </button>
           </div>
         </div>
       )}
 
       <div className="space-y-8">
-        {(hideCount ? events : [
-          ...expandedGroups.includes('zero') ? groupedEvents.zero : [],
-          ...expandedGroups.includes('partial') ? groupedEvents.partial : [],
-          ...expandedGroups.includes('paid') ? groupedEvents.paid : []
-        ]).map((evt, index) => {
+        {(hideCount || filterMode === 'palestras' ? events : (
+          activeGroup === 'all' ? events : (groupedEvents[activeGroup as keyof typeof groupedEvents] || [])
+        )).map((evt, index) => {
           const isPalestra = checkIfPalestra(evt);
           const baseValue = parseCurrency(evt.value) || 0;
           const courseValue = (isPalestra && evt.palestraType === 'MEU') 
@@ -297,13 +305,9 @@ export const EventList: React.FC<EventListProps> = ({
           const remaining = Math.max(0, courseValue - totalPaid);
           const isPaid = remaining < 0.01 && courseValue > 0; 
 
-          const materials = isPalestra ? (evt.materials || []) : (evt.materials || []).filter(m => m.checked);
+          const materials = evt.materials || [];
           const totalMaterialCost = materials.reduce((acc, m) => acc + parseCurrency(m.cost), 0);
-          
-          const shouldAbate = isPalestra && !!evt.abateExpenses && evt.palestraType !== 'MEU';
-          const finalLiquid = (isPalestra && evt.palestraType !== 'MEU' && !shouldAbate)
-            ? courseValue
-            : courseValue - totalMaterialCost;
+          const finalLiquid = courseValue - totalMaterialCost;
 
           const today = new Date();
           today.setHours(0,0,0,0);
@@ -407,10 +411,10 @@ export const EventList: React.FC<EventListProps> = ({
               key={evt.id}
               ref={el => { eventRefs.current[evt.id] = el; if (dateKey && !eventRefs.current[dateKey]) eventRefs.current[dateKey] = el; }}
               className={`bg-white dark:bg-surface-dark rounded-xl shadow-lg border border-gray-100 dark:border-gray-800 overflow-hidden relative transition-all duration-300
-                 ${highlightEventId === evt.id ? 'ring-4 ring-yellow-400 scale-[1.02] z-10' : (isCloseOrOverdue ? 'ring-2 ring-red-600 dark:ring-red-50' : (isPalestra ? 'border-sky-200 shadow-sky-500/10' : ''))}
+                 ${highlightEventId === evt.id ? 'ring-4 ring-yellow-400 scale-[1.02] z-10' : (isCloseOrOverdue ? 'ring-2 ring-red-600 dark:ring-red-50' : '')}
               `}
             >
-              <div className={`${isPalestra ? 'bg-sky-500' : 'bg-[#1A4373]'} py-3 px-4 flex flex-col items-center justify-center relative min-h-[50px]`}>
+              <div className="bg-[#1A4373] py-3 px-4 flex flex-col items-center justify-center relative min-h-[50px]">
                   <h3 className="text-[18px] font-black text-white text-center leading-tight truncate px-8 uppercase tracking-tighter">
                     {evt.student || (isPalestra ? 'Evento Corporativo' : 'Aluna sem nome')}
                   </h3>
@@ -428,7 +432,7 @@ export const EventList: React.FC<EventListProps> = ({
 
               <div className="p-3 flex flex-col items-center text-center gap-1">
                  <div className="mb-2">
-                    <p className={`text-base font-bold uppercase tracking-tight leading-tight ${isPalestra ? 'text-sky-500' : 'text-gray-800 dark:text-white'}`}>
+                    <p className="text-base font-bold uppercase tracking-tight leading-tight text-gray-800 dark:text-white">
                         {evt.title}
                     </p>
                     <p className="text-[11px] text-gray-800 dark:text-white mt-0.5 font-bold">
@@ -554,30 +558,39 @@ export const EventList: React.FC<EventListProps> = ({
                         )}
                     </div>
                     
-                    {isPalestra && !evt.abateExpenses && (
-                        <div className="mb-2 flex justify-end">
-                             <span className="text-[10px] font-black text-red-500">Total: R$ {totalMaterialCost.toFixed(2).replace('.', ',')}</span>
-                        </div>
-                    )}
-
                     <ul className="space-y-1.5">
                         {evt.materials?.map(m => (
                             <li key={m.id} className="flex justify-between items-center text-xs p-1">
-                               <div className="flex items-center gap-2">
-                                  <div className="cursor-pointer" onClick={() => onToggleMaterial?.(evt.id, m.id)}>
-                                    {m.checked ? <CheckSquareIcon className={`w-4 h-4 ${isPalestra ? 'text-sky-500' : 'text-emerald-500'}`} /> : <SquareIcon className="w-4 h-4 text-gray-300" />}
-                                  </div>
-                                  <span className={`font-medium ${m.checked ? 'line-through text-gray-400' : 'text-gray-700 dark:text-gray-200'}`}>{m.name}</span>
+                               <div className="flex items-center gap-2 overflow-hidden">
+                                  <span className="font-medium text-gray-700 dark:text-gray-200 truncate">{m.name}</span>
                                </div>
-                               <div className="flex items-center gap-2">
-                                  {m.cost !== undefined && <span className={`text-[10px] font-bold ${m.checked ? 'text-red-500' : 'text-gray-400'}`}>R$ {parseCurrency(m.cost).toFixed(2).replace('.', ',')}</span>}
-                                  <button onClick={() => setRemoveConfirm({ isOpen: true, eventId: evt.id, materialId: m.id })} className="text-gray-400 hover:text-red-500 p-1 transition-colors">
-                                    <TrashIcon className="w-3.5 h-3.5" />
-                                  </button>
+                               <div className="flex items-center gap-2 shrink-0">
+                                  {m.cost !== undefined && <span className="text-[10px] font-bold text-red-500">R$ {parseCurrency(m.cost).toFixed(2).replace('.', ',')}</span>}
+                                  <div className="flex items-center gap-1">
+                                    <button 
+                                      onClick={() => {
+                                        setQuickMaterialName({ ...quickMaterialName, [evt.id]: m.name });
+                                        setQuickMaterialCost({ ...quickMaterialCost, [evt.id]: m.cost?.toString() || '0' });
+                                        setEditingMaterialId({ ...editingMaterialId, [evt.id]: m.id });
+                                      }} 
+                                      className="text-gray-400 hover:text-primary p-1 transition-colors"
+                                    >
+                                      <PencilIcon className="w-3.5 h-3.5" />
+                                    </button>
+                                    <button onClick={() => onRemoveMaterial?.(evt.id, m.id, m.name)} className="text-gray-400 hover:text-red-500 p-1 transition-colors">
+                                      <TrashIcon className="w-3.5 h-3.5" />
+                                    </button>
+                                  </div>
                                </div>
                             </li>
                         ))}
                     </ul>
+
+                    {isPalestra && !evt.abateExpenses && (
+                        <div className="mt-2 flex justify-end">
+                             <span className="text-[10px] font-black text-red-500">Total: R$ {totalMaterialCost.toFixed(2).replace('.', ',')}</span>
+                        </div>
+                    )}
                     
                     {isPalestra ? (
                       <div className="mt-2 pt-2 border-t border-sky-100 dark:border-sky-900/30 flex flex-col gap-2">
@@ -599,22 +612,25 @@ export const EventList: React.FC<EventListProps> = ({
                           />
                           <button 
                             onClick={() => handleQuickAdd(evt.id)}
-                            className="w-10 h-10 bg-sky-500 text-white rounded-lg hover:bg-sky-600 transition-all shadow-sm flex items-center justify-center flex-shrink-0"
+                            className={`w-8 h-8 ${editingMaterialId[evt.id] ? 'bg-green-500 hover:bg-green-600' : 'bg-sky-500 hover:bg-sky-600'} text-white rounded-lg transition-all shadow-sm flex items-center justify-center flex-shrink-0`}
                           >
-                            <PlusIcon className="w-5 h-5" />
+                            {editingMaterialId[evt.id] ? <CheckIcon className="w-4 h-4" /> : <PlusIcon className="w-4 h-4" />}
                           </button>
+                          {editingMaterialId[evt.id] && (
+                            <button 
+                              onClick={() => {
+                                setQuickMaterialName({ ...quickMaterialName, [evt.id]: '' });
+                                setQuickMaterialCost({ ...quickMaterialCost, [evt.id]: '' });
+                                setEditingMaterialId({ ...editingMaterialId, [evt.id]: null });
+                              }}
+                              className="w-8 h-8 bg-gray-200 dark:bg-gray-700 text-gray-500 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-all shadow-sm flex items-center justify-center flex-shrink-0"
+                            >
+                              <XIcon className="w-4 h-4" />
+                            </button>
+                          )}
                         </div>
 
-                        {evt.palestraType !== 'MEU' && (
-                          <button 
-                              onClick={() => onToggleAbate?.(evt.id)}
-                              className={`w-full py-2.5 rounded-lg text-[10px] font-black uppercase transition-all flex items-center justify-center gap-2 border shadow-sm
-                                  ${evt.abateExpenses ? 'bg-sky-500 text-white border-sky-500' : 'bg-white dark:bg-bg-dark text-sky-500 border-sky-100'}`}
-                          >
-                              {evt.abateExpenses ? <CheckIcon className="w-3.5 h-3.5" /> : <XIcon className="w-3.5 h-3.5" />}
-                              Abater do Cachê
-                          </button>
-                        )}
+                        {/* Abate automático conforme solicitado */}
                         
                         <div className="grid grid-cols-3 gap-1 pt-0.5">
                           {['Hotel', 'Passagem', 'Ônibus', 'Alimentação', 'Uber', '99'].map(shortcut => (
@@ -648,10 +664,22 @@ export const EventList: React.FC<EventListProps> = ({
                           />
                           <button 
                             onClick={() => handleQuickAdd(evt.id)}
-                            className="p-1.5 bg-primary text-white rounded-lg hover:bg-primary-dark transition-all shadow-sm flex items-center justify-center"
+                            className={`w-7 h-7 ${editingMaterialId[evt.id] ? 'bg-green-500 hover:bg-green-600' : 'bg-primary hover:bg-primary-dark'} text-white rounded-lg transition-all shadow-sm flex items-center justify-center flex-shrink-0`}
                           >
-                            <PlusIcon className="w-4 h-4" />
+                            {editingMaterialId[evt.id] ? <CheckIcon className="w-3.5 h-3.5" /> : <PlusIcon className="w-3.5 h-3.5" />}
                           </button>
+                          {editingMaterialId[evt.id] && (
+                            <button 
+                              onClick={() => {
+                                setQuickMaterialName({ ...quickMaterialName, [evt.id]: '' });
+                                setQuickMaterialCost({ ...quickMaterialCost, [evt.id]: '' });
+                                setEditingMaterialId({ ...editingMaterialId, [evt.id]: null });
+                              }}
+                              className="w-7 h-7 bg-gray-200 dark:bg-gray-700 text-gray-500 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-all shadow-sm flex items-center justify-center flex-shrink-0"
+                            >
+                              <XIcon className="w-3.5 h-3.5" />
+                            </button>
+                          )}
                         </div>
                         {courseShortcuts.length > 0 && (
                           <div className="grid grid-cols-3 gap-1 pt-0.5">
@@ -673,12 +701,14 @@ export const EventList: React.FC<EventListProps> = ({
                  {/* RESUMO FINANCEIRO */}
                  <div className={`w-full bg-white dark:bg-surface-dark border rounded-lg p-3 mb-2 shadow-sm ${isPalestra ? 'border-sky-100' : 'border-gray-200'}`}>
                     <div className="space-y-1.5">
-                        <div className="flex justify-between items-center text-xs">
-                            <span className="text-gray-500 font-bold">
-                              {isPalestra ? (evt.palestraType === 'MEU' ? 'Valor do Curso:' : 'Cachê Acordado:') : 'Valor do Curso:'}
-                            </span>
-                            <span className="font-bold text-gray-800 dark:text-white">R$ {courseValue.toFixed(2).replace('.', ',')}</span>
-                        </div>
+                        {!(isPalestra && evt.palestraType === 'MEU') && (
+                          <div className="flex justify-between items-center text-xs">
+                              <span className="text-gray-500 font-bold">
+                                {isPalestra ? 'Cachê Acordado:' : 'Valor do Curso:'}
+                              </span>
+                              <span className="font-bold text-gray-800 dark:text-white">R$ {courseValue.toFixed(2).replace('.', ',')}</span>
+                          </div>
+                        )}
                         
                         {!isPalestra && payments.length > 0 && (
                           <div className="pt-1.5 border-t border-gray-100 dark:border-gray-800 space-y-1">
@@ -697,28 +727,28 @@ export const EventList: React.FC<EventListProps> = ({
                           </div>
                         )}
 
-                        {isPalestra && shouldAbate && (
-                             <div className="flex justify-between items-center text-xs pt-1.5 border-t border-gray-100 dark:border-gray-800">
-                                <span className="text-gray-500 font-bold uppercase">Total de Gastos:</span>
-                                <span className="font-bold text-red-600 dark:text-red-500">- R$ {totalMaterialCost.toFixed(2).replace('.', ',')}</span>
-                             </div>
-                        )}
-
-                        {!isPalestra && (
-                          <div className="flex justify-between items-center text-xs pt-1.5 border-t border-gray-100 dark:border-gray-800">
-                              <span className="text-gray-500 font-bold">Lucro Líquido:</span>
-                              <span className="font-bold text-emerald-600">R$ {finalLiquid.toFixed(2).replace('.', ',')}</span>
-                          </div>
-                        )}
-
-                        <div className="flex justify-between items-center text-sm pt-1.5 border-t border-dashed border-gray-200 dark:border-gray-700">
-                            <span className="font-black text-gray-800 dark:text-white uppercase text-[10px]">
-                                {isPalestra ? 'SALDO LÍQUIDO FINAL:' : (isPaid ? 'TOTAL PAGO' : 'Restante a Pagar:')}
-                            </span>
-                            <span className={`font-black ${isPaid ? (isPalestra ? 'text-sky-500' : 'text-emerald-500') : (isPalestra ? 'text-sky-500' : 'text-red-500')}`}>
-                                R$ {(isPalestra ? finalLiquid : (isPaid ? totalPaid : remaining)).toFixed(2).replace('.', ',')}
-                            </span>
+                        <div className={`flex justify-between items-center text-[10px] ${!(isPalestra && evt.palestraType === 'MEU') ? 'pt-1.5 border-t border-gray-100 dark:border-gray-800' : ''}`}>
+                            <span className="text-gray-500 font-bold uppercase">Total de Gastos:</span>
+                            <span className="font-bold text-red-600 dark:text-red-500">- R$ {totalMaterialCost.toFixed(2).replace('.', ',')}</span>
                         </div>
+
+                        {!(isPalestra && evt.palestraType === 'MEU') && (
+                          <>
+                            <div className="flex justify-between items-center text-[10px] pt-1.5 border-t border-gray-100 dark:border-gray-800">
+                                <span className="text-gray-500 font-bold uppercase">Lucro Líquido:</span>
+                                <span className="font-bold text-emerald-600">R$ {finalLiquid.toFixed(2).replace('.', ',')}</span>
+                            </div>
+
+                            <div className="flex justify-between items-center text-sm pt-1.5 border-t border-dashed border-gray-200 dark:border-gray-700">
+                                <span className="font-black text-gray-800 dark:text-white uppercase text-[10px]">
+                                    {isPaid ? 'TOTAL PAGO' : 'Restante a Pagar:'}
+                                </span>
+                                <span className={`font-black ${isPaid ? 'text-emerald-500' : 'text-red-500'}`}>
+                                    R$ {(isPaid ? totalPaid : remaining).toFixed(2).replace('.', ',')}
+                                </span>
+                            </div>
+                          </>
+                        )}
                     </div>
                  </div>
                  
@@ -801,20 +831,6 @@ export const EventList: React.FC<EventListProps> = ({
           );
         })}
       </div>
-      <ConfirmationModal 
-        isOpen={!!removeConfirm} 
-        onClose={() => setRemoveConfirm(null)} 
-        onConfirm={() => {
-          if (removeConfirm) {
-            onRemoveMaterial?.(removeConfirm.eventId, removeConfirm.materialId);
-          }
-        }} 
-        title={isPalestraTarget ? "Deseja remover este gasto?" : "Deseja remover este material?"} 
-        message=""
-        confirmLabel="SIM"
-        cancelLabel="NÃO"
-        variant={isPalestraTarget ? 'palestra' : 'default'}
-      />
     </div>
   );
 };
