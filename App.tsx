@@ -484,10 +484,10 @@ function App() {
     refreshData();
   };
 
-  const handleDirectInstallmentPaid = async (event: CalendarEvent, installment: number, amount: number) => {
+  const handleDirectInstallmentPaid = async (event: CalendarEvent, installment: number) => {
     const newPayment = {
       id: Math.random().toString(36).substr(2, 9),
-      amount,
+      amount: 0,
       date: new Date().toISOString(),
       method: 'Pix',
       installment
