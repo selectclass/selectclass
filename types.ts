@@ -97,6 +97,7 @@ export interface CalendarEvent {
   palestraType?: 'MEU' | 'CONVIDADA';
   studentCount?: number;
   includeInAnnualRevenue?: boolean;
+  installmentDates?: { [installment: number]: string };
 }
 
 export interface DayData {
