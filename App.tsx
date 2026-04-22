@@ -718,7 +718,28 @@ function App() {
                 </button>
               </div>
             </div>
-            <UnifiedSearch searchTerm={searchTerm} onSearchChange={setSearchTerm} allEvents={allEvents} courseTypes={courseTypes} onResultClick={(e) => { if(e.date) setSelectedDate(new Date(e.date)); setSearchTerm(''); }} />
+            <UnifiedSearch 
+              searchTerm={searchTerm} 
+              onSearchChange={setSearchTerm} 
+              allEvents={allEvents} 
+              courseTypes={courseTypes} 
+              onResultClick={(e) => { 
+                if (e.date) {
+                  setSelectedDate(new Date(e.date)); 
+                  
+                  const isPal = (e.palestraType || e.title === 'Palestra' || e.title === 'Workshop' || lectureModels.some(m => m.name === e.title));
+                  setEventFilter(isPal ? 'palestras' : 'cursos');
+
+                  setHighlightEventId(null);
+                  setTimeout(() => {
+                    setHighlightEventId(e.id);
+                  }, 0);
+
+                  setTimeout(() => setHighlightEventId(null), 5000);
+                }
+                setSearchTerm(''); 
+              }} 
+            />
             <EventList 
               date={selectedDate} 
               events={allEvents.filter(e => { 
