@@ -19,6 +19,7 @@ interface EventListProps {
   onToggleAbate?: (eventId: string) => void;
   onQuickInstallmentPaid?: (event: CalendarEvent, installment: number) => void;
   onDirectInstallmentPaid?: (event: CalendarEvent, installment: number) => void;
+  onChangeInstallmentDate?: (event: CalendarEvent, installment: number, newDate: string) => void;
   onShareFinancialSummary?: (event: CalendarEvent) => void;
   courseTypes?: CourseType[];
   lectureModels?: LectureModel[];
@@ -42,6 +43,7 @@ export const EventList: React.FC<EventListProps> = ({
   onUpdateMaterial,
   onQuickInstallmentPaid,
   onDirectInstallmentPaid,
+  onChangeInstallmentDate,
   onShareFinancialSummary,
   courseTypes = [],
   lectureModels = [],
@@ -329,12 +331,23 @@ export const EventList: React.FC<EventListProps> = ({
               let d = new Date(startDate);
               d.setDate(startDate.getDate() + (interval * i));
               
+              let isLast = false;
               if (d.getTime() >= maxDate.getTime()) {
-                scheduleDates.push(new Date(maxDate));
-                break;
-              } else {
-                scheduleDates.push(d);
+                d = new Date(maxDate);
+                isLast = true;
               }
+              
+              let finalD = d;
+              if (evt.installmentDates && evt.installmentDates[i]) {
+                let dStr = evt.installmentDates[i];
+                if (dStr.indexOf('T') === -1) {
+                  dStr += 'T12:00:00';
+                }
+                finalD = new Date(dStr);
+              }
+              
+              scheduleDates.push(finalD);
+              if (isLast) break;
               i++;
               if (i > 50) break; // limite de segurança
             }
@@ -482,61 +495,91 @@ export const EventList: React.FC<EventListProps> = ({
                       <div className="grid grid-cols-2 gap-x-4 gap-y-1">
                         {scheduleDates.map((d, i) => {
                           const isPaidInstallment = evt.payments?.some(p => p.installment === i + 1);
-                          
-                          // Lógica de piscar o botão: 1 dia antes ou atrasado
                           const installmentDate = new Date(d);
                           installmentDate.setHours(0,0,0,0);
                           const isBlinkingButton = !isPaidInstallment && (installmentDate.getTime() - today.getTime()) <= (1 * 24 * 60 * 60 * 1000);
+                          
+                          const isEditing = installmentChoice?.eventId === evt.id && installmentChoice?.installment === i + 1;
 
                           return (
-                            <div key={i} className="flex justify-between items-center text-[10px] text-gray-600 dark:text-gray-400 py-0.5">
-                               <span className="font-bold">Parcela {i+1}:</span>
-                               {isPaidInstallment ? (
-                                 <span className="font-black text-emerald-500 uppercase flex items-center gap-1">
-                                   <CheckIcon className="w-3 h-3" /> PAGO
-                                 </span>
-                               ) : (
-                                 <div className="relative flex items-center justify-end">
-                                   {installmentChoice?.eventId === evt.id && installmentChoice?.installment === i + 1 ? (
-                                     <div className="flex gap-1 animate-in fade-in zoom-in duration-200 ml-2">
-                                       <button 
-                                         onClick={() => {
-                                           onDirectInstallmentPaid?.(evt, i + 1);
-                                           setInstallmentChoice(null);
-                                         }}
-                                         className="bg-emerald-500 text-white px-2 py-1 rounded text-[9px] font-black uppercase shadow hover:bg-emerald-600 transition-colors whitespace-nowrap"
-                                       >
-                                         Dar Baixa
-                                       </button>
-                                       <button 
-                                         onClick={() => {
-                                           onQuickInstallmentPaid?.(evt, i + 1);
-                                           setInstallmentChoice(null);
-                                         }}
-                                         className="bg-primary text-white px-2 py-1 rounded text-[9px] font-black uppercase shadow hover:bg-primary-dark transition-colors whitespace-nowrap"
-                                       >
-                                         Lançar
-                                       </button>
-                                       <button 
-                                         onClick={() => setInstallmentChoice(null)}
-                                         className="bg-gray-200 dark:bg-white/10 text-gray-500 dark:text-gray-400 px-1.5 py-1 rounded hover:bg-gray-300 transition-colors flex-shrink-0"
-                                       >
-                                         <XIcon className="w-3 h-3" />
-                                       </button>
-                                     </div>
-                                   ) : (
-                                     <button 
-                                       onClick={() => setInstallmentChoice({ eventId: evt.id, installment: i + 1 })}
-                                       className={`flex items-center gap-1 px-2 py-1 rounded-lg transition-colors font-black border ml-2 flex-shrink-0 ${isBlinkingButton ? 'bg-red-500 text-white border-red-600 animate-soft-blink shadow-lg shadow-red-500/20' : 'bg-primary/10 text-primary dark:text-blue-300 border-primary/20 hover:bg-primary/20'}`}
-                                       title="Opções de pagamento"
-                                     >
-                                       <span className="mr-1 whitespace-nowrap">{d.toLocaleDateString('pt-BR', {day:'2-digit', month:'2-digit'})}</span>
-                                       <div className={`${isBlinkingButton ? 'bg-white text-red-500' : 'bg-primary text-white'} rounded-full p-0.5 flex-shrink-0`}>
-                                         <PlusIcon className="w-2.5 h-2.5" />
+                            <div key={i} className={`text-[10px] text-gray-600 dark:text-gray-400 py-0.5 ${isEditing ? 'col-span-2 animate-in fade-in zoom-in-95 duration-200' : 'flex justify-between items-center'}`}>
+                               {isEditing ? (
+                                  <div className="w-full bg-white dark:bg-black/20 p-2.5 rounded-xl shadow-sm border border-gray-200 dark:border-gray-800 flex flex-col gap-2.5 mt-1">
+                                    <div className="flex justify-between items-center">
+                                      <span className="font-black text-gray-500 dark:text-gray-400 uppercase text-[10px]">Opções - Parcela {i+1}</span>
+                                      <button 
+                                        onClick={() => setInstallmentChoice(null)}
+                                        className="bg-gray-100 dark:bg-white/10 text-gray-500 py-1 px-1.5 rounded-md hover:bg-gray-200 dark:hover:bg-white/20 transition-colors"
+                                      >
+                                        <XIcon className="w-3 h-3" />
+                                      </button>
+                                    </div>
+                                    
+                                    <div className="flex gap-2 w-full">
+                                      <button 
+                                        onClick={() => {
+                                          onDirectInstallmentPaid?.(evt, i + 1);
+                                          setInstallmentChoice(null);
+                                        }}
+                                        className="flex-1 bg-emerald-500 text-white py-2 rounded-lg font-black uppercase text-[9px] shadow hover:bg-emerald-600 transition-colors text-center"
+                                      >
+                                        Dar Baixa
+                                      </button>
+                                      <button 
+                                        onClick={() => {
+                                          onQuickInstallmentPaid?.(evt, i + 1);
+                                          setInstallmentChoice(null);
+                                        }}
+                                        className="flex-1 bg-primary text-white py-2 rounded-lg font-black uppercase text-[9px] shadow hover:bg-primary-dark transition-colors text-center"
+                                      >
+                                        Lançar
+                                      </button>
+                                    </div>
+                                    
+                                    <div className="flex flex-col gap-1.5 border-t border-gray-100 dark:border-gray-800 pt-2.5 mt-0.5">
+                                       <span className="font-black text-gray-400 uppercase text-[8px] tracking-wider">Alterar Vencimento:</span>
+                                       <div className="flex gap-2 w-full">
+                                         <input 
+                                           id={`date-input-${evt.id}-${i}`}
+                                           type="date" 
+                                           className="flex-1 bg-gray-50 dark:bg-surface-dark border border-gray-200 dark:border-gray-700 rounded-lg px-2 py-1 text-gray-700 dark:text-gray-300 font-bold focus:ring-2 focus:ring-primary focus:outline-none transition-all" 
+                                           defaultValue={`${installmentDate.getFullYear()}-${String(installmentDate.getMonth()+1).padStart(2,'0')}-${String(installmentDate.getDate()).padStart(2,'0')}`}
+                                         />
+                                         <button 
+                                           onClick={() => {
+                                             const input = document.getElementById(`date-input-${evt.id}-${i}`) as HTMLInputElement;
+                                             if (input && input.value) {
+                                               onChangeInstallmentDate?.(evt, i + 1, input.value);
+                                               setInstallmentChoice(null);
+                                             }
+                                           }}
+                                           className="bg-gray-200 dark:bg-white/10 text-gray-700 dark:text-gray-200 px-3 py-1 rounded-lg text-[9px] font-black uppercase hover:bg-gray-300 transition-colors"
+                                         >
+                                           Salvar
+                                         </button>
                                        </div>
-                                     </button>
-                                   )}
-                                 </div>
+                                    </div>
+                                  </div>
+                               ) : (
+                                  <>
+                                     <span className="font-bold">Parcela {i+1}:</span>
+                                     {isPaidInstallment ? (
+                                       <span className="font-black text-emerald-500 uppercase flex items-center gap-1">
+                                         <CheckIcon className="w-3 h-3" /> PAGO
+                                       </span>
+                                     ) : (
+                                       <button 
+                                         onClick={() => setInstallmentChoice({ eventId: evt.id, installment: i + 1 })}
+                                         className={`flex items-center gap-1 px-2.5 py-1 rounded-lg transition-colors font-black border ${isBlinkingButton ? 'bg-red-500 text-white border-red-600 animate-soft-blink shadow-lg shadow-red-500/20' : 'bg-primary/10 text-primary dark:text-blue-300 border-primary/20 hover:bg-primary/20'}`}
+                                         title="Opções de pagamento"
+                                       >
+                                         <span className="mr-1 whitespace-nowrap">{d.toLocaleDateString('pt-BR', {day:'2-digit', month:'2-digit'})}</span>
+                                         <div className={`${isBlinkingButton ? 'bg-white text-red-500' : 'bg-primary text-white'} rounded-full p-0.5 flex-shrink-0`}>
+                                           <PlusIcon className="w-2.5 h-2.5" />
+                                         </div>
+                                       </button>
+                                     )}
+                                  </>
                                )}
                             </div>
                           );
