@@ -415,11 +415,11 @@ export const EventList: React.FC<EventListProps> = ({
               `}
             >
               <div className="bg-[#1A4373] py-3 px-4 flex flex-col items-center justify-center relative min-h-[50px]">
-                  <h3 className="text-[18px] font-black text-white text-center leading-tight truncate px-8 uppercase tracking-tighter">
+                  <h3 className="text-[14px] font-black text-white text-center leading-tight truncate px-8 uppercase tracking-tighter">
                     {evt.student || (isPalestra ? 'Evento Corporativo' : 'Aluna sem nome')}
                   </h3>
                   {isPalestra && evt.palestraType === 'MEU' && evt.studentCount && (
-                    <div className="text-[14px] font-black text-white uppercase tracking-tight mt-0.5">
+                    <div className="text-[10px] font-black text-white uppercase tracking-tight mt-0.5">
                       {evt.studentCount} {evt.studentCount === 1 ? 'Aluna' : 'Alunas'}
                     </div>
                   )}
@@ -432,7 +432,7 @@ export const EventList: React.FC<EventListProps> = ({
 
               <div className="p-3 flex flex-col items-center text-center gap-1">
                  <div className="mb-2">
-                    <p className="text-base font-bold uppercase tracking-tight leading-tight text-gray-800 dark:text-white">
+                    <p className="text-[12px] font-bold uppercase tracking-tight leading-tight text-gray-800 dark:text-white">
                         {evt.title}
                     </p>
                     <p className="text-[11px] text-gray-800 dark:text-white mt-0.5 font-bold">
