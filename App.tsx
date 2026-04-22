@@ -210,12 +210,24 @@ function App() {
       while (true) {
         let d = new Date(startDate);
         d.setDate(startDate.getDate() + (interval * i));
+        
+        let isLast = false;
         if (d.getTime() >= maxDate.getTime()) {
-          scheduleDates.push(new Date(maxDate));
-          break;
-        } else {
-          scheduleDates.push(d);
+          d = new Date(maxDate);
+          isLast = true;
         }
+        
+        let finalD = d;
+        if (evt.installmentDates && evt.installmentDates[i]) {
+          let dStr = evt.installmentDates[i];
+          if (dStr.indexOf('T') === -1) {
+            dStr += 'T12:00:00';
+          }
+          finalD = new Date(dStr);
+        }
+        
+        scheduleDates.push(finalD);
+        if (isLast) break;
         i++;
         if (i > 50) break;
       }
@@ -495,6 +507,14 @@ function App() {
     const updatedPayments = [...(event.payments || []), newPayment];
     const path = (event.title === 'Palestra' || event.title === 'Workshop' || lectureModels.some(m => m.name === event.title)) ? 'palestras_v1' : 'v1/appointments';
     await api.put(`${path}/${event.id}`, { ...event, payments: updatedPayments, date: event.date instanceof Date ? event.date.toISOString() : event.date });
+    refreshData();
+  };
+
+  const handleChangeInstallmentDate = async (event: CalendarEvent, installment: number, newDate: string) => {
+    const updatedDates = { ...(event.installmentDates || {}) };
+    updatedDates[installment] = newDate;
+    const path = (event.title === 'Palestra' || event.title === 'Workshop' || lectureModels.some(m => m.name === event.title)) ? 'palestras_v1' : 'v1/appointments';
+    await api.put(`${path}/${event.id}`, { ...event, installmentDates: updatedDates, date: event.date instanceof Date ? event.date.toISOString() : event.date });
     refreshData();
   };
 
@@ -779,6 +799,7 @@ function App() {
                 setIsPaymentModalOpen(true);
               }}
               onDirectInstallmentPaid={handleDirectInstallmentPaid}
+              onChangeInstallmentDate={handleChangeInstallmentDate}
               onShareFinancialSummary={handleShareFinancialSummary}
               courseTypes={courseTypes} 
               lectureModels={lectureModels} 
