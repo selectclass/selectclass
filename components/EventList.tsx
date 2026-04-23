@@ -21,6 +21,10 @@ interface EventListProps {
   onDirectInstallmentPaid?: (event: CalendarEvent, installment: number) => void;
   onChangeInstallmentDate?: (event: CalendarEvent, installment: number, newDate: string) => void;
   onShareFinancialSummary?: (event: CalendarEvent) => void;
+  onAddDailyMaterial?: (name: string, cost: number, eventsList: CalendarEvent[]) => void;
+  onAddAllChecklistToEvent?: (eventId: string, matsToAdd: {name: string, cost: number}[]) => void;
+  onEditDailyMaterial?: (oldName: string, newName: string, cost: number, eventsList: CalendarEvent[]) => void;
+  onDeleteDailyMaterial?: (name: string, eventsList: CalendarEvent[]) => void;
   courseTypes?: CourseType[];
   lectureModels?: LectureModel[];
   hideCount?: boolean;
@@ -45,6 +49,10 @@ export const EventList: React.FC<EventListProps> = ({
   onDirectInstallmentPaid,
   onChangeInstallmentDate,
   onShareFinancialSummary,
+  onAddDailyMaterial,
+  onAddAllChecklistToEvent,
+  onEditDailyMaterial,
+  onDeleteDailyMaterial,
   courseTypes = [],
   lectureModels = [],
   hideCount = false,
@@ -58,6 +66,14 @@ export const EventList: React.FC<EventListProps> = ({
   const [copiedEmailId, setCopiedEmailId] = useState<string | null>(null);
   const [activeGroup, setActiveGroup] = useState<string>('all');
   const [installmentChoice, setInstallmentChoice] = useState<{eventId: string, installment: number} | null>(null);
+  const [isDailyChecklistOpen, setIsDailyChecklistOpen] = useState(false);
+  const [isAddingAllToStudentOpen, setIsAddingAllToStudentOpen] = useState(false);
+  const [materialToDelete, setMaterialToDelete] = useState<string | null>(null);
+  const [dailyMaterialInput, setDailyMaterialInput] = useState('');
+  const [dailyMaterialCostInput, setDailyMaterialCostInput] = useState('');
+  const [editingDailyMaterialName, setEditingDailyMaterialName] = useState<string | null>(null);
+  const [editingDailyInput, setEditingDailyInput] = useState('');
+  const [editingDailyCostInput, setEditingDailyCostInput] = useState('');
   
   // Reset activeGroup when filterMode changes
   useEffect(() => {
@@ -217,6 +233,55 @@ export const EventList: React.FC<EventListProps> = ({
     return groups;
   }, [events, courseTypes, lectureModels]);
 
+  const dailyMaterialsReport = useMemo(() => {
+    if (filterMode === 'palestras') return [];
+    
+    const uniqueMats = new Map<string, {name: string, maxCost: number}>();
+    const validEvents = events.filter(e => !checkIfPalestra(e));
+
+    validEvents.forEach(e => {
+        (e.materials || []).forEach(m => {
+            const key = m.name.toLowerCase().trim();
+            const existing = uniqueMats.get(key);
+            if (!existing || ((m.cost || 0) > existing.maxCost)) {
+                uniqueMats.set(key, { name: m.name, maxCost: m.cost || 0 });
+            }
+        });
+    });
+
+    const report: { 
+        name: string, 
+        cost: number, 
+        notAssignedEvents: CalendarEvent[], 
+        notBoughtEvents: CalendarEvent[] 
+    }[] = [];
+
+    uniqueMats.forEach((val, key) => {
+        const notAssigned: CalendarEvent[] = [];
+        const notBought: CalendarEvent[] = [];
+        
+        validEvents.forEach(e => {
+            const mat = (e.materials || []).find(m => m.name.toLowerCase().trim() === key);
+            if (!mat) {
+                notAssigned.push(e);
+            } else {
+                if (!mat.checked) { // Checked now means bought according to user
+                    notBought.push(e);
+                }
+            }
+        });
+        
+        report.push({
+            name: val.name,
+            cost: val.maxCost,
+            notAssignedEvents: notAssigned,
+            notBoughtEvents: notBought
+        });
+    });
+    
+    return report.sort((a, b) => a.name.localeCompare(b.name));
+  }, [events, filterMode, courseTypes, lectureModels]);
+
   if (events.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center p-10 text-center opacity-60 mt-10">
@@ -288,7 +353,211 @@ export const EventList: React.FC<EventListProps> = ({
               </span>
             </button>
           </div>
-        </div>
+
+          {/* CHECKLIST DO DIA VERIFICATION */}
+          {(() => {
+            const hasMissingMaterials = dailyMaterialsReport.some(m => m.notAssignedEvents.length > 0);
+            
+            let headerClasses = "text-[11px] font-black uppercase p-4 flex items-center justify-between cursor-pointer transition-colors duration-500 ";
+            let headerText = "Checklist do Dia";
+            let iconColor = "";
+
+            if (!isDailyChecklistOpen && hasMissingMaterials) {
+              headerClasses += "bg-red-500 text-white animate-pulse shadow-[0_0_15px_rgba(239,68,68,0.5)]";
+              headerText = "MATERIAIS PENDENTES";
+              iconColor = "text-white";
+            } else {
+              headerClasses += "text-primary dark:text-blue-300";
+            }
+
+            return (
+              <div className="mt-8 bg-blue-50 dark:bg-surface-dark border border-blue-100 dark:border-blue-900/30 rounded-xl shadow-sm mx-1 overflow-hidden transition-all duration-300">
+                <h4 
+                  className={headerClasses}
+                  onClick={() => setIsDailyChecklistOpen(!isDailyChecklistOpen)}
+                >
+                  <div className="flex items-center gap-1">
+                     <BoxIcon className={`w-4 h-4 ${iconColor}`} /> {headerText}
+                  </div>
+                  <span className={`text-[10px] px-2 py-0.5 rounded-full ${(!isDailyChecklistOpen && hasMissingMaterials) ? 'bg-black/20 text-white' : 'text-gray-400 bg-white dark:bg-black/20'}`}>
+                    {isDailyChecklistOpen ? 'OCULTAR' : 'MOSTRAR'}
+                  </span>
+                </h4>
+                
+                {isDailyChecklistOpen && (
+                  <div className="px-4 pb-4 animate-in fade-in slide-in-from-top-4 duration-300">
+                    <div className="flex flex-col gap-2 mb-4">
+                   <div className="flex flex-col sm:flex-row gap-2">
+                     <input
+                       type="text"
+                       placeholder="Nome do Material..."
+                       className="w-full sm:flex-[2] bg-white dark:bg-black/20 border border-blue-200 dark:border-blue-800 rounded-lg px-3 py-2 text-[11px] font-bold outline-none focus:border-primary focus:ring-1 focus:ring-primary shadow-sm"
+                       value={dailyMaterialInput}
+                       onChange={(e) => setDailyMaterialInput(e.target.value)}
+                     />
+                     <input
+                       type="tel"
+                       placeholder="R$ 0,00"
+                       className="w-full sm:flex-[1] bg-white dark:bg-black/20 border border-blue-200 dark:border-blue-800 rounded-lg px-3 py-2 text-[11px] font-bold outline-none focus:border-primary focus:ring-1 focus:ring-primary shadow-sm"
+                       value={dailyMaterialCostInput}
+                       onChange={(e) => setDailyMaterialCostInput(formatCurrencyInput(e.target.value))}
+                       onKeyDown={(e) => {
+                         if (e.key === 'Enter' && dailyMaterialInput.trim() && onAddDailyMaterial) {
+                           onAddDailyMaterial(dailyMaterialInput.trim(), parseCurrency(dailyMaterialCostInput), events);
+                           setDailyMaterialInput('');
+                           setDailyMaterialCostInput('');
+                         }
+                       }}
+                     />
+                     <button
+                       onClick={() => {
+                         if (dailyMaterialInput.trim() && onAddDailyMaterial) {
+                           onAddDailyMaterial(dailyMaterialInput.trim(), parseCurrency(dailyMaterialCostInput), events);
+                           setDailyMaterialInput('');
+                           setDailyMaterialCostInput('');
+                         }
+                       }}
+                       className="w-full sm:w-auto bg-primary text-white px-4 py-2 rounded-lg text-[10px] font-black uppercase shadow hover:bg-primary-dark transition-colors"
+                     >
+                       Adicionar
+                     </button>
+                   </div>
+                   
+                   {/* Botão de adicionar todos os materiais em uma aluna e Dropdown */}
+                   <div className="mt-1 text-center relative max-w-sm ml-auto mr-auto">
+                      <button 
+                        onClick={() => setIsAddingAllToStudentOpen(!isAddingAllToStudentOpen)}
+                        className="w-full bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/30 px-3 py-2 rounded-lg text-[10px] font-black uppercase shadow-sm hover:bg-emerald-100 transition-colors flex items-center justify-center gap-1.5"
+                      >
+                         <PlusIcon className="w-3.5 h-3.5" /> Adicionar CHECKLIST COMPLETO EM ALUNA
+                      </button>
+
+                      {isAddingAllToStudentOpen && (
+                        <div className="absolute top-full left-0 right-0 mt-1 bg-white dark:bg-surface-dark border border-gray-100 dark:border-gray-800 rounded-xl shadow-xl z-10 max-h-48 overflow-y-auto">
+                           {events.filter(e => !checkIfPalestra(e)).length === 0 ? (
+                             <div className="p-3 text-[10px] text-gray-400 font-medium">Nenhuma aluna de curso neste dia.</div>
+                           ) : (
+                             events.filter(e => !checkIfPalestra(e)).map(studentEvent => (
+                               <button 
+                                 key={studentEvent.id} 
+                                 onClick={() => {
+                                   if (onAddAllChecklistToEvent) {
+                                      const matsToAdd = dailyMaterialsReport
+                                        .filter(m => !studentEvent.materials?.some(item => item.name.toLowerCase().trim() === m.name.toLowerCase().trim()))
+                                        .map(m => ({ name: m.name, cost: m.cost }));
+                                      
+                                      if (matsToAdd.length > 0) {
+                                        onAddAllChecklistToEvent(studentEvent.id, matsToAdd);
+                                      }
+                                   }
+                                   setIsAddingAllToStudentOpen(false);
+                                 }}
+                                 className="w-full text-left p-3 border-b border-gray-50 dark:border-gray-800 last:border-0 hover:bg-gray-50 dark:hover:bg-white/5 transition-colors flex items-center justify-between"
+                               >
+                                 <span className="text-[11px] font-bold text-gray-700 dark:text-gray-300">{studentEvent.student || 'Sem nome'}</span>
+                                 <PlusIcon className="w-3 h-3 text-emerald-500" />
+                               </button>
+                             ))
+                           )}
+                        </div>
+                      )}
+                   </div>
+                </div>
+
+                {dailyMaterialsReport.length > 0 ? (
+                  <div className="space-y-3">
+                    {dailyMaterialsReport.map((m, idx) => {
+                      const isEditing = editingDailyMaterialName === m.name;
+                      return (
+                        <div key={idx} className="flex flex-col gap-1.5 border-b border-blue-100 dark:border-blue-900/40 last:border-0 pb-3 last:pb-0">
+                          {materialToDelete === m.name ? (
+                             <div className="flex flex-col gap-2 p-2 bg-red-50 dark:bg-red-500/10 border border-red-100 dark:border-red-500/20 rounded">
+                               <p className="text-[10px] font-bold text-red-600 dark:text-red-400">Tem certeza que deseja excluir de todas as alunas?</p>
+                               <div className="flex gap-2">
+                                 <button onClick={() => setMaterialToDelete(null)} className="flex-1 bg-gray-200 dark:bg-white/10 text-gray-600 dark:text-gray-300 rounded px-2 py-1 text-[9px] font-bold uppercase transition-colors hover:bg-gray-300">Cancelar</button>
+                                 <button onClick={() => { 
+                                   if(onDeleteDailyMaterial) onDeleteDailyMaterial(m.name, events);
+                                   setMaterialToDelete(null);
+                                 }} className="flex-1 bg-red-500 text-white rounded px-2 py-1 text-[9px] font-bold uppercase transition-colors hover:bg-red-600">Sim, excluir</button>
+                               </div>
+                             </div>
+                          ) : isEditing ? (
+                            <div className="flex flex-col gap-2 p-2 bg-blue-50/50 dark:bg-black/10 rounded-lg border border-blue-100 dark:border-blue-800/50">
+                              <div className="flex flex-col sm:flex-row gap-2">
+                                <input
+                                 type="text"
+                                 className="w-full sm:flex-[2] bg-white dark:bg-black/20 border border-blue-200 dark:border-blue-800 rounded-lg px-3 py-2 text-[11px] font-bold outline-none focus:border-primary focus:ring-1 focus:ring-primary shadow-sm"
+                                 value={editingDailyInput}
+                                 onChange={(e) => setEditingDailyInput(e.target.value)}
+                                />
+                                <input
+                                 type="text"
+                                 className="w-full sm:flex-[1] bg-white dark:bg-black/20 border border-blue-200 dark:border-blue-800 rounded-lg px-3 py-2 text-[11px] font-bold outline-none focus:border-primary focus:ring-1 focus:ring-primary shadow-sm"
+                                 value={editingDailyCostInput}
+                                 onChange={(e) => setEditingDailyCostInput(formatCurrencyInput(e.target.value))}
+                                />
+                              </div>
+                              <div className="flex gap-2 w-full mt-1">
+                                <button onClick={() => setEditingDailyMaterialName(null)} className="flex-1 bg-gray-200 dark:bg-white/10 text-gray-600 dark:text-gray-300 px-3 py-2 rounded-lg text-[10px] font-black hover:bg-gray-300 uppercase transition-colors shadow-sm">Cancelar</button>
+                                <button onClick={() => {
+                                  if(onEditDailyMaterial) onEditDailyMaterial(m.name, editingDailyInput, parseCurrency(editingDailyCostInput), events);
+                                  setEditingDailyMaterialName(null);
+                                }} className="flex-1 bg-emerald-500 text-white px-3 py-2 rounded-lg text-[10px] font-black hover:bg-emerald-600 uppercase transition-colors shadow-sm">Salvar</button>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="flex justify-between items-center group">
+                              <span className="text-[11px] font-bold text-gray-700 dark:text-gray-200 flex items-center gap-1.5">
+                                {m.name} 
+                                <span className="text-[9px] font-black text-primary/70 bg-primary/10 px-1.5 rounded-full">R$ {m.cost.toFixed(2).replace('.', ',')}</span>
+                              </span>
+                              <div className="flex gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                                 <button onClick={() => {
+                                   setEditingDailyMaterialName(m.name);
+                                   setEditingDailyInput(m.name);
+                                   setEditingDailyCostInput(formatCurrencyInput(m.cost.toFixed(2).replace('.', ',')));
+                                 }} className="text-gray-400 hover:text-blue-500 px-1">
+                                   <PencilIcon className="w-3 h-3" />
+                                 </button>
+                                 <button onClick={() => setMaterialToDelete(m.name)} className="text-gray-400 hover:text-red-500 px-1">
+                                   <TrashIcon className="w-3 h-3" />
+                                 </button>
+                              </div>
+                            </div>
+                          )}
+                          
+                          {/* Display Status */}
+                          <div className="flex flex-col gap-0.5 mt-0.5">
+                             {m.notAssignedEvents.length > 0 ? (
+                               <div className="flex flex-col items-start gap-1 mt-1">
+                                  <span className="text-[9px] font-black text-red-500 uppercase tracking-tight">
+                                    Não adicionado em: {m.notAssignedEvents.map(e => e.student || 'Sem nome').join(', ')}
+                                  </span>
+                                  <button onClick={() => onAddDailyMaterial && onAddDailyMaterial(m.name, m.cost, m.notAssignedEvents)} className="bg-emerald-100 dark:bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/30 px-2 py-0.5 rounded text-[8px] font-black uppercase hover:bg-emerald-200 transition-colors">
+                                    + ADICIONAR NESTAS ALUNAS
+                                  </button>
+                               </div>
+                             ) : (
+                               <div className="mt-1">
+                                 <span className="text-[9px] font-black text-emerald-500 uppercase tracking-tight flex items-center gap-1">
+                                   <CheckIcon className="w-2.5 h-2.5" /> Adicionado em todas
+                                 </span>
+                               </div>
+                             )}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                ) : (
+                   <p className="text-[10px] text-gray-400 font-medium mt-2">Nenhum material listado para este dia.</p>
+                )}
+              </div>
+            )}
+          </div>
+         );
+       })()}
+       </div>
       )}
 
       <div className="space-y-8">
