@@ -297,16 +297,44 @@ function App() {
     const basePath = isLecNow ? 'palestras_v1' : 'v1/appointments';
 
     let finalMaterials = eventData.materials || editingEvent?.materials;
-    if (isNew && !isLecNow && !finalMaterials) {
+    if (isNew && !isLecNow && (!finalMaterials || finalMaterials.length === 0)) {
+      const mergedMaterials: Map<string, MaterialItem> = new Map();
+
+      // 1. Load from defaultMaterials of course config
       const courseConfig = courseTypes.find(c => c.name === eventData.title);
       if (courseConfig?.defaultMaterials) {
-        finalMaterials = courseConfig.defaultMaterials.map(m => ({
-          id: generateId(),
-          name: m.name,
-          checked: true, // Set to true by default as requested
-          cost: 0
-        }));
+        courseConfig.defaultMaterials.forEach(m => {
+          mergedMaterials.set(m.name.toLowerCase().trim(), {
+            id: generateId(),
+            name: m.name,
+            checked: true,
+            cost: 0
+          });
+        });
       }
+
+      // 2. Load from the latest student's materials of the SAME course
+      const previousSimilarEvent = allEvents
+       .filter(e => e.title === eventData.title && e.materials && e.materials.length > 0)
+       .sort((a, b) => {
+         const aDate = a.createdAt ? new Date(a.createdAt).getTime() : (a.date ? new Date(a.date).getTime() : 0);
+         const bDate = b.createdAt ? new Date(b.createdAt).getTime() : (b.date ? new Date(b.date).getTime() : 0);
+         return bDate - aDate;
+       })[0];
+
+      if (previousSimilarEvent && previousSimilarEvent.materials) {
+        previousSimilarEvent.materials.forEach(m => {
+          const key = m.name.toLowerCase().trim();
+          mergedMaterials.set(key, {
+            id: generateId(),
+            name: m.name,
+            checked: true,
+            cost: m.cost || 0
+          });
+        });
+      }
+
+      finalMaterials = Array.from(mergedMaterials.values());
     }
 
     if (!isNew && editingEvent) {
@@ -425,6 +453,107 @@ function App() {
     }
 
     setQuickAddMaterialConfirm(null);
+    refreshData();
+  };
+
+  const handleAddAllChecklistToEvent = async (eventId: string, matsToAdd: {name: string, cost: number}[]) => {
+    const event = allEvents.find(e => e.id === eventId);
+    if (!event) return;
+    
+    // Add all specified materials to the event at once
+    const newMaterialsToAdd = matsToAdd.map(m => ({
+      id: generateId(),
+      name: m.name,
+      checked: false, // Default to pending
+      cost: m.cost
+    }));
+
+    const updatedMaterials = [...(event.materials || []), ...newMaterialsToAdd];
+    const path = (event.title === 'Palestra' || event.title === 'Workshop' || lectureModels.some(m => m.name === event.title)) ? 'palestras_v1' : 'v1/appointments';
+    
+    await api.put(`${path}/${event.id}`, { 
+      ...event, 
+      materials: updatedMaterials, 
+      date: event.date instanceof Date ? event.date.toISOString() : event.date,
+      payments: event.payments?.map(p => ({...p, date: p.date instanceof Date ? p.date.toISOString() : p.date })) 
+    });
+
+    refreshData();
+  };
+
+  const handleAddDailyMaterial = async (name: string, cost: number, currentDayEventsList: CalendarEvent[]) => {
+    // Apenas aplica aos eventos do tipo "Curso" deste dia
+    const targetEvents = currentDayEventsList.filter(e => {
+        const isLec = (e.title === 'Palestra' || e.title === 'Workshop' || lectureModels.some(m => m.name === e.title));
+        return !isLec;
+    });
+
+    for (const e of targetEvents) {
+      const exists = (e.materials || []).some(m => m.name.toLowerCase().trim() === name.toLowerCase().trim());
+      if (!exists) {
+        // Inicializa como falso (faltando)
+        const newMaterial: MaterialItem = { id: generateId(), name, checked: false, cost }; 
+        const updatedMaterials = [...(e.materials || []), newMaterial];
+        const path = 'v1/appointments';
+        
+        await api.put(`${path}/${e.id}`, { 
+           ...e, 
+           materials: updatedMaterials, 
+           date: e.date instanceof Date ? e.date.toISOString() : e.date,
+           payments: e.payments?.map(p => ({...p, date: p.date instanceof Date ? p.date.toISOString() : p.date }))
+        });
+      }
+    }
+    refreshData();
+  };
+
+  const handleEditDailyMaterial = async (oldName: string, newName: string, cost: number, currentDayEventsList: CalendarEvent[]) => {
+    const targetEvents = currentDayEventsList.filter(e => {
+        const isLec = (e.title === 'Palestra' || e.title === 'Workshop' || lectureModels.some(m => m.name === e.title));
+        return !isLec;
+    });
+
+    for (const e of targetEvents) {
+      const exists = (e.materials || []).some(m => m.name.toLowerCase().trim() === oldName.toLowerCase().trim());
+      if (exists) {
+        const updatedMaterials = (e.materials || []).map(m => {
+          if (m.name.toLowerCase().trim() === oldName.toLowerCase().trim()) {
+            return { ...m, name: newName, cost };
+          }
+          return m;
+        });
+        
+        const path = 'v1/appointments';
+        await api.put(`${path}/${e.id}`, { 
+           ...e, 
+           materials: updatedMaterials, 
+           date: e.date instanceof Date ? e.date.toISOString() : e.date,
+           payments: e.payments?.map(p => ({...p, date: p.date instanceof Date ? p.date.toISOString() : p.date }))
+        });
+      }
+    }
+    refreshData();
+  };
+
+  const handleDeleteDailyMaterial = async (name: string, currentDayEventsList: CalendarEvent[]) => {
+    const targetEvents = currentDayEventsList.filter(e => {
+        const isLec = (e.title === 'Palestra' || e.title === 'Workshop' || lectureModels.some(m => m.name === e.title));
+        return !isLec;
+    });
+
+    for (const e of targetEvents) {
+      const exists = (e.materials || []).some(m => m.name.toLowerCase().trim() === name.toLowerCase().trim());
+      if (exists) {
+        const updatedMaterials = (e.materials || []).filter(m => m.name.toLowerCase().trim() !== name.toLowerCase().trim());
+        const path = 'v1/appointments';
+        await api.put(`${path}/${e.id}`, { 
+           ...e, 
+           materials: updatedMaterials, 
+           date: e.date instanceof Date ? e.date.toISOString() : e.date,
+           payments: e.payments?.map(p => ({...p, date: p.date instanceof Date ? p.date.toISOString() : p.date }))
+        });
+      }
+    }
     refreshData();
   };
 
@@ -697,28 +826,46 @@ function App() {
                         <button onClick={() => setShowDashboardRevenue(!showDashboardRevenue)} className="text-gray-400 hover:text-primary transition-colors p-1">{showDashboardRevenue ? <EyeOffIcon className="w-5 h-5" /> : <EyeIcon className="w-5 h-5" />}</button>
                     </div>
                     <div className="grid grid-cols-4 gap-1 divide-x divide-gray-100 pt-1 text-center">
-                        <div className="px-1">
+                        <div className="px-1 flex flex-col justify-between">
                           <p className="text-[8px] font-black text-gray-400 uppercase mb-1 truncate">
                             Faturamento
                           </p>
-                          <p className="font-black text-[11px] text-gray-800 dark:text-white">
+                          <p className="font-black text-[10px] sm:text-[11px] text-gray-800 dark:text-white truncate">
                             {showDashboardRevenue 
                               ? `R$ ${totalFaturamento.toLocaleString('pt-BR')}` 
                               : 'R$ ---'}
                           </p>
                         </div>
-                        <div className="px-1">
+                        <div className="px-1 flex flex-col justify-between">
                           <p className="text-[8px] font-black text-gray-400 uppercase mb-1 truncate">
                             Pendente
                           </p>
-                          <p className="font-black text-[11px] text-red-500">
+                          <p className="font-black text-[10px] sm:text-[11px] text-orange-500 truncate">
                             {showDashboardRevenue 
                               ? `R$ ${totalPending.toLocaleString('pt-BR')}` 
                               : 'R$ ---'}
                           </p>
                         </div>
-                        <div className="px-1"><p className="text-[8px] font-black text-gray-400 uppercase mb-1 truncate">Despesas</p><p className="font-black text-red-600 text-[11px]">{showDashboardRevenue ? `R$ ${totalExpenses.toLocaleString('pt-BR')}` : 'R$ ---'}</p></div>
-                        <div className="px-1"><p className="text-[8px] font-black text-gray-400 uppercase mb-1 truncate">Líquido</p><p className={`font-black text-[11px] ${totalLiquid >= 0 ? 'text-emerald-500' : 'text-red-600'}`}>{showDashboardRevenue ? `R$ ${totalLiquid.toLocaleString('pt-BR')}` : 'R$ ---'}</p></div>
+                        <div className="px-1 flex flex-col justify-between">
+                          <p className="text-[8px] font-black text-gray-400 uppercase mb-1 truncate">
+                            Despesas
+                          </p>
+                          <p className="font-black text-[10px] sm:text-[11px] text-red-500 truncate">
+                            {showDashboardRevenue 
+                              ? `R$ ${totalExpenses.toLocaleString('pt-BR')}` 
+                              : 'R$ ---'}
+                          </p>
+                        </div>
+                        <div className="px-1 flex flex-col justify-between">
+                          <p className="text-[8px] font-black text-gray-400 uppercase mb-1 truncate">
+                            Líquido
+                          </p>
+                          <p className={`font-black text-[10px] sm:text-[11px] truncate ${totalLiquid >= 0 ? 'text-emerald-500' : 'text-red-500'}`}>
+                            {showDashboardRevenue 
+                              ? `R$ ${totalLiquid.toLocaleString('pt-BR')}` 
+                              : 'R$ ---'}
+                          </p>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -801,6 +948,10 @@ function App() {
               onDirectInstallmentPaid={handleDirectInstallmentPaid}
               onChangeInstallmentDate={handleChangeInstallmentDate}
               onShareFinancialSummary={handleShareFinancialSummary}
+              onAddDailyMaterial={handleAddDailyMaterial}
+              onAddAllChecklistToEvent={handleAddAllChecklistToEvent}
+              onEditDailyMaterial={handleEditDailyMaterial}
+              onDeleteDailyMaterial={handleDeleteDailyMaterial}
               courseTypes={courseTypes} 
               lectureModels={lectureModels} 
               hideCount={false}
@@ -994,16 +1145,16 @@ function App() {
             </p>
             <div className="flex flex-col gap-2">
               <button 
-                onClick={() => confirmQuickRemoveMaterial(true)}
-                className="w-full py-3 bg-red-500 text-white rounded-xl font-black uppercase tracking-widest text-xs hover:bg-red-600 transition-colors"
-              >
-                Remover de Todos
-              </button>
-              <button 
                 onClick={() => confirmQuickRemoveMaterial(false)}
                 className="w-full py-3 bg-gray-100 dark:bg-white/5 text-gray-700 dark:text-gray-300 rounded-xl font-black uppercase tracking-widest text-xs hover:bg-gray-200 dark:hover:bg-white/10 transition-colors"
               >
                 Somente Neste
+              </button>
+              <button 
+                onClick={() => confirmQuickRemoveMaterial(true)}
+                className="w-full py-3 bg-red-500 text-white rounded-xl font-black uppercase tracking-widest text-xs hover:bg-red-600 transition-colors"
+              >
+                Remover de Todos
               </button>
               <button 
                 onClick={() => setQuickRemoveMaterialConfirm(null)}
