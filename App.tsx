@@ -22,7 +22,7 @@ import { StudentModal } from './components/StudentModal';
 import { LoginScreen } from './components/LoginScreen'; 
 import { UnifiedSearch } from './components/UnifiedSearch';
 import { LectureModelManager } from './components/LectureModelManager';
-import { MenuIcon, PlusIcon, MoonIcon, SunIcon, EyeIcon, EyeOffIcon, CalendarIcon, AlertCircleIcon, XIcon, BoxIcon, MicIcon, GraduationCapIcon, SearchIcon, ChevronUpIcon, CheckIcon, BellIcon } from './components/Icons';
+import { MenuIcon, PlusIcon, MoonIcon, SunIcon, EyeIcon, EyeOffIcon, CalendarIcon, AlertCircleIcon, XIcon, BoxIcon, MicIcon, GraduationCapIcon, SearchIcon, ChevronUpIcon, ChevronDownIcon, CheckIcon, BellIcon } from './components/Icons';
 import { parseCurrency } from './utils/currency';
 
 const FIREBASE_URL = "https://selectclass-dd1d0-default-rtdb.firebaseio.com/";
@@ -178,6 +178,7 @@ function App() {
   const [searchTerm, setSearchTerm] = useState('');
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [highlightEventId, setHighlightEventId] = useState<string | null>(null);
+  const [expandedCourses, setExpandedCourses] = useState<string[]>([]);
 
   const notifications = useMemo(() => {
     const today = new Date();
@@ -768,6 +769,49 @@ function App() {
 
         const totalStudents = dashboardFilteredEvents.reduce((acc, event) => acc + (event.studentCount || 0), 0);
 
+        const todayZeroed = new Date();
+        todayZeroed.setHours(0,0,0,0);
+        
+        const groupedUpcomingCourses = new Map<string, { date: Date, title: string, students: string[], id: string, diffDays: number }>();
+        allEvents.forEach(e => {
+            if (!e.date) return;
+            const isPal = (e.palestraType || e.title === 'Palestra' || e.title === 'Workshop' || lectureModels.some(m => m.name === e.title));
+            if (isPal) return;
+            
+            const eStart = new Date(e.date);
+            eStart.setHours(0,0,0,0);
+            
+            const dStr = String(e.duration || '').toLowerCase();
+            let durationNum = 1;
+            if (dStr.includes('dia')) durationNum = parseInt(dStr) || 1;
+            const eEnd = new Date(eStart);
+            eEnd.setDate(eStart.getDate() + durationNum - 1);
+            
+            if (eEnd >= todayZeroed) {
+                const diffTime = eStart.getTime() - todayZeroed.getTime();
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                
+                const key = `${eStart.getTime()}-${e.title}`;
+                if (!groupedUpcomingCourses.has(key)) {
+                    groupedUpcomingCourses.set(key, { 
+                        date: eStart, 
+                        title: e.title, 
+                        students: [], 
+                        id: e.id,
+                        diffDays: diffDays
+                     });
+                }
+                const group = groupedUpcomingCourses.get(key)!;
+                if (e.student) {
+                    group.students.push(e.student);
+                }
+            }
+        });
+        
+        const nextCourses = Array.from(groupedUpcomingCourses.values())
+            .sort((a,b) => a.date.getTime() - b.date.getTime())
+            .slice(0, 3);
+
         return (
           <>
             <div className="px-5 pt-6 pb-2 space-y-3">
@@ -809,6 +853,79 @@ function App() {
               courseTypes={courseTypes}
               lectureModels={lectureModels}
             />
+
+            {nextCourses.length > 0 && (
+              <div className="px-4 mb-3">
+                <div className="bg-primary/5 dark:bg-primary/10 rounded-xl p-3 border border-primary/20 dark:border-primary/30 shadow-sm flex flex-col gap-2">
+                  <h3 className="text-[10px] font-black uppercase text-primary dark:text-blue-300 tracking-wider">
+                    Próximos Cursos
+                  </h3>
+                  <div className="flex flex-col gap-2">
+                    {nextCourses.map(course => {
+                        const isExpanded = expandedCourses.includes(course.id);
+                        
+                        let daysLabel = "";
+                        if (course.diffDays < 0) daysLabel = "Em andamento";
+                        else if (course.diffDays === 0) daysLabel = "Hoje!";
+                        else if (course.diffDays === 1) daysLabel = "Amanhã!";
+                        else daysLabel = `Faltam ${course.diffDays} dias`;
+
+                        return (
+                            <div key={course.id} className="flex flex-col bg-white dark:bg-surface-dark border border-gray-100 dark:border-gray-800 p-2 rounded-lg transition-all">
+                                <div 
+                                    className="flex flex-row justify-between items-center cursor-pointer"
+                                    onClick={() => {
+                                        if (isExpanded) {
+                                            setExpandedCourses(prev => prev.filter(id => id !== course.id));
+                                        } else {
+                                            setExpandedCourses(prev => [...prev, course.id]);
+                                        }
+                                    }}
+                                >
+                                    <div className="flex flex-col overflow-hidden w-2/3 pr-2">
+                                        <div className="flex items-center gap-1.5">
+                                            <span className="text-[11px] font-bold text-gray-800 dark:text-white truncate">{course.title}</span>
+                                            {course.students.length > 0 && (
+                                                <span className="bg-gray-100 dark:bg-gray-800 text-gray-500 text-[8px] font-bold px-1.5 py-0.5 rounded-full">
+                                                    {course.students.length}
+                                                </span>
+                                            )}
+                                        </div>
+                                        <button className="text-[9px] text-primary flex items-center gap-1 font-semibold mt-0.5 text-left w-max">
+                                            {isExpanded ? <ChevronUpIcon className="w-3 h-3" /> : <ChevronDownIcon className="w-3 h-3" />}
+                                            {isExpanded ? 'Ocultar alunas' : 'Ver alunas'}
+                                        </button>
+                                    </div>
+                                    <div className="flex flex-col items-end w-1/3 text-right">
+                                        <span className={`text-[10px] font-black uppercase ${course.diffDays <= 2 && course.diffDays >= 0 ? 'text-red-500 animate-pulse' : 'text-primary/80'}`}>
+                                            {daysLabel}
+                                        </span>
+                                        <span className="text-[9px] text-gray-400 font-medium">
+                                            {course.date.toLocaleDateString('pt-BR', {day: '2-digit', month: '2-digit'})}
+                                        </span>
+                                    </div>
+                                </div>
+                                
+                                {isExpanded && (
+                                    <div className="mt-2 pt-2 border-t border-gray-50 dark:border-gray-800/50 flex flex-col gap-1 pl-1">
+                                        {course.students.length > 0 ? course.students.map((studentName, idx) => (
+                                            <div key={idx} className="text-[10px] text-gray-600 dark:text-gray-300 flex items-center gap-1.5 break-words">
+                                                <span className="text-[8px] opacity-60">👩‍🎓</span> 
+                                                <span>{studentName || 'Não informado'}</span>
+                                            </div>
+                                        )) : (
+                                            <div className="text-[10px] text-gray-400 italic">Nenhuma aluna informada</div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                        )
+                    })}
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div className="px-4 mb-2">
                 <div className="bg-white dark:bg-surface-dark rounded-xl shadow-sm border border-gray-100 dark:border-gray-800 p-4">
                     <div className="flex items-center justify-between mb-4 pb-4 border-b border-gray-50 dark:border-gray-800">
