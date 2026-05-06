@@ -10,7 +10,8 @@ export enum AppView {
   EXPENSES = 'EXPENSES',
   HISTORY = 'HISTORY',
   LECTURE_MODELS = 'LECTURE_MODELS',
-  ALL_EVENTS = 'ALL_EVENTS'
+  ALL_EVENTS = 'ALL_EVENTS',
+  MESSAGE_CENTER = 'MESSAGE_CENTER'
 }
 
 export interface Expense {
@@ -43,6 +44,14 @@ export interface CourseType {
   defaultMaterials?: MaterialDef[];
   defaultLocation?: 'interno' | 'externo';
   order?: number;
+  street?: string;
+  number?: string;
+  neighborhood?: string;
+  city?: string;
+  state?: string;
+  zip?: string;
+  referencePoint?: string;
+  messageTemplate?: string;
 }
 
 export interface LectureModel {
@@ -81,8 +90,14 @@ export interface CalendarEvent {
   email?: string;
   city?: string;
   state?: string;
+  street?: string;
+  number?: string;
+  neighborhood?: string;
+  zip?: string;
+  referencePoint?: string;
   locationType?: 'interno' | 'externo';
   eventLocation?: string;
+  materialsText?: string;
   value?: number;
   paymentMethod?: string;
   paymentStatus?: 'paid' | 'pending';
