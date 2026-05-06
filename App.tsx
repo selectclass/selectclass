@@ -900,9 +900,21 @@ function App() {
                                         <span className={`text-[10px] font-black uppercase ${course.diffDays <= 2 && course.diffDays >= 0 ? 'text-red-500 animate-pulse' : 'text-primary/80'}`}>
                                             {daysLabel}
                                         </span>
-                                        <span className="text-[9px] text-gray-400 font-medium">
+                                        <span className="text-[9px] text-gray-400 font-medium mb-1">
                                             {course.date.toLocaleDateString('pt-BR', {day: '2-digit', month: '2-digit'})}
                                         </span>
+                                        <button 
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                const d = new Date(course.date);
+                                                setSelectedDate(d);
+                                                setDashboardDate(d);
+                                                window.scrollTo({ top: 0, behavior: 'smooth' });
+                                            }}
+                                            className="bg-primary text-white text-[9px] font-black uppercase px-2 py-1 rounded shadow-sm hover:bg-primary/90 transition-colors"
+                                        >
+                                            Ir para a data
+                                        </button>
                                     </div>
                                 </div>
                                 
@@ -1315,7 +1327,7 @@ function App() {
         </div>
       )}
 
-      <ShareModal isOpen={shareData.isOpen} onClose={() => setShareData({ isOpen: false, event: null })} event={shareData.event} />
+      <ShareModal isOpen={shareData.isOpen} onClose={() => setShareData({ isOpen: false, event: null })} event={shareData.event} courseTypes={courseTypes} />
     </div>
   );
 }
