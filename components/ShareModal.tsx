@@ -1,27 +1,70 @@
 
 import React, { useState, useMemo } from 'react';
-import { CalendarEvent } from '../types';
+import { CalendarEvent, CourseType } from '../types';
 import { XIcon, CheckIcon, WhatsAppIcon, ShareIcon, MapPinIcon, HomeIcon } from './Icons';
 
 interface ShareModalProps {
   isOpen: boolean;
   onClose: () => void;
   event: CalendarEvent | null;
+  courseTypes: CourseType[];
 }
 
-export const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, event }) => {
+export const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, event, courseTypes }) => {
   const [isCopied, setIsCopied] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [messageTemplate, setMessageTemplate] = useState(() => {
+    return localStorage.getItem('SHARE_MESSAGE_TEMPLATE_V2') || `CONFIRMAÇÃO DE AGENDAMENTO
+
+CURSO: {{CURSO}}
+DATA: {{DATA}}
+HORÁRIO: {{HORARIO}}
+DURAÇÃO: {{DURACAO}}
+
+LOCAL: {{LOCAL}}
+
+RESUMO FINANCEIRO
+* Valor Total: R$ {{TOTAL}}
+* Sinal Pago: R$ {{SINAL}}
+* Método: {{METODO}}
+* {{STATUS_PAGAMENTO}}{{PARCELAMENTO}}
+
+Qualquer dúvida, estou à disposição!
+{{#SE_MATERIAIS}}
+--------------------------------
+
+*MATERIAIS PARA TRAZER:*
+{{MATERIAIS}}
+{{/SE_MATERIAIS}}`;
+  });
+
+  const courseType = useMemo(() => courseTypes.find(c => c.name === event?.title), [event, courseTypes]);
 
   const generateMessage = useMemo(() => {
     if (!event) return '';
-
+    
     let formattedDate = '';
-    let dayOfWeek = '';
 
     if (event.date) {
         const dateObj = new Date(event.date);
-        formattedDate = dateObj.toLocaleDateString('pt-BR');
-        dayOfWeek = dateObj.toLocaleDateString('pt-BR', { weekday: 'long' });
+        const daysNumbers: string[] = [];
+        const duration = parseInt(event.duration) || 1;
+
+        for (let i = 0; i < duration; i++) {
+            const d = new Date(dateObj);
+            d.setDate(dateObj.getDate() + i);
+            daysNumbers.push(d.getDate().toString().padStart(2, '0'));
+        }
+        
+        const monthName = dateObj.toLocaleDateString('pt-BR', { month: 'long' });
+        
+        let dateString = daysNumbers.join(', ');
+        if (daysNumbers.length > 1) {
+            const lastIndex = dateString.lastIndexOf(', ');
+            dateString = dateString.substring(0, lastIndex) + ' e ' + dateString.substring(lastIndex + 2);
+        }
+        
+        formattedDate = `${dateString} de ${monthName}`;
     }
 
     const signalPaid = event.payments?.[0]?.amount || 0;
@@ -31,32 +74,36 @@ export const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, event }
     const isPaid = remaining < 0.01;
 
     // Se for interno, usa o endereço do studio. Se for externo, usa o endereço cadastrado.
-    const address = event.locationType === 'interno' || !event.locationType
-      ? "Rua Francisco Antônio Miranda, N°58 - Guarulhos SP. Sala N°6 (Interfone n° 6)"
-      : (event.eventLocation || "Local a definir");
-
-    let msg = `*CONFIRMAÇÃO DE AGENDAMENTO*\n\n`;
-    
-    msg += `*CURSO:* ${event.title}\n`;
-    msg += `*DATA:* ${formattedDate} (${dayOfWeek})\n`;
-    msg += `*HORÁRIO:* ${event.time}\n`;
-    msg += `*DURAÇÃO:* ${event.duration}\n\n`;
-
-    msg += `*LOCAL:* ${address}\n\n`;
-
-    msg += `*RESUMO FINANCEIRO*\n`;
-    msg += `• Valor Total: R$ ${totalValue.toFixed(2).replace('.', ',')}\n`;
-    msg += `• Sinal Pago: *R$ ${signalPaid.toFixed(2).replace('.', ',')}*\n`;
-    msg += `• Método: ${event.paymentMethod}\n`;
-    
-    if (!isPaid) {
-        msg += `• Saldo Restante: *R$ ${remaining.toFixed(2).replace('.', ',')}*\n`;
+    let address = "";
+    if (event.locationType === 'interno' || !event.locationType) {
+        address = "Rua Francisco Antônio Miranda, N°58 - Guarulhos SP. Sala N°6 (Interfone n° 6)";
     } else {
-        msg += `• Status: *PAGAMENTO QUITADO*\n`;
+        const parts = [
+            event.street,
+            event.number,
+            event.neighborhood,
+            event.city,
+            event.state
+        ].filter(Boolean);
+        address = parts.join(', ');
+        if (event.referencePoint) {
+            address += ` (${event.referencePoint})`;
+        }
     }
 
+    let materialsStr = "";
+    if (event.materialsText) {
+        materialsStr = event.materialsText;
+    } else {
+        const checkedMaterials = event.materials?.filter(m => m.checked) || [];
+        if (checkedMaterials.length > 0) {
+            materialsStr = checkedMaterials.map(m => `• ${m.name}`).join('\n');
+        }
+    }
+
+    let parcelamentoMsg = '';
     if (event.paymentFrequency && event.createdAt && !isPaid) {
-        msg += `\n*PAGAMENTO FACILITADO (${event.paymentFrequency === 'weekly' ? 'Semanal' : 'Quinzenal'})*\n`;
+        parcelamentoMsg += `\n\n*PAGAMENTO FACILITADO (${event.paymentFrequency === 'weekly' ? 'Semanal' : 'Quinzenal'})*\n`;
         const courseDate = event.date ? new Date(event.date) : new Date();
         courseDate.setHours(0,0,0,0);
         const deadlineDays = event.paymentDeadlineDays || 0;
@@ -73,22 +120,43 @@ export const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, event }
             d.setDate(startDate.getDate() + (interval * i));
             
             if (d.getTime() >= maxDate.getTime()) {
-                msg += `• Parcela ${i}: ${maxDate.toLocaleDateString('pt-BR')}\n`;
+                parcelamentoMsg += `• Parcela ${i}: ${maxDate.toLocaleDateString('pt-BR')}\n`;
                 break;
             } else {
-                msg += `• Parcela ${i}: ${d.toLocaleDateString('pt-BR')}\n`;
+                parcelamentoMsg += `• Parcela ${i}: ${d.toLocaleDateString('pt-BR')}\n`;
             }
             i++;
-            if (i > 50) break; // limite de segurança
+            if (i > 50) break; 
         }
         
-        msg += `\n*Atenção: O intervalo da última parcela pode ser menor para garantir a quitação total até ${deadlineDays > 0 ? `${deadlineDays} dias antes` : 'o dia'} do curso.*\n`;
+        parcelamentoMsg += `\nAtenção: O intervalo da última parcela pode ser menor para garantir a quitação total até ${deadlineDays > 0 ? `${deadlineDays} dias antes` : 'o dia'} do curso.\n`;
     }
 
-    msg += `\nQualquer dúvida, estou à disposição!`;
+    let msg = messageTemplate
+        .replace('{{CURSO}}', event.title || '')
+        .replace('{{DATA}}', formattedDate)
+        .replace('{{HORARIO}}', event.time || '')
+        .replace('{{DURACAO}}', event.duration || '')
+        .replace('{{LOCAL}}', address)
+        .replace('{{TOTAL}}', totalValue.toFixed(2).replace('.', ','))
+        .replace('{{SINAL}}', signalPaid.toFixed(2).replace('.', ','))
+        .replace('{{METODO}}', event.paymentMethod || '-')
+        .replace('{{STATUS_PAGAMENTO}}', isPaid ? 'Pagamento Quitado' : `Saldo Restante: R$ ${remaining.toFixed(2).replace('.', ',')}`)
+        .replace('{{PARCELAMENTO}}', parcelamentoMsg);
+        
+    if (materialsStr) {
+        msg = msg.replace('{{#SE_MATERIAIS}}', '').replace('{{/SE_MATERIAIS}}', '');
+        msg = msg.replace('{{MATERIAIS}}', materialsStr);
+    } else {
+        msg = msg.replace(/\{\{#SE_MATERIAIS\}\}[\s\S]*?\{\{\/SE_MATERIAIS\}\}/g, '');
+        msg = msg.replace('{{MATERIAIS}}', '');
+    }
+    
+    // Clean up any double empty lines that might have been created
+    msg = msg.replace(/\n{3,}/g, '\n\n').trim();
 
     return msg;
-  }, [event]);
+  }, [event, courseType, messageTemplate]);
 
   if (!isOpen || !event) return null;
 
@@ -144,10 +212,34 @@ export const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, event }
               </div>
 
               <div className="w-full bg-gray-50 dark:bg-bg-dark border border-gray-200 dark:border-gray-700 rounded-2xl p-4 mb-6 text-left shadow-inner">
-                  <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-3">Pré-visualização WhatsApp</p>
-                  <div className="text-sm text-gray-700 dark:text-gray-200 whitespace-pre-line leading-relaxed font-medium">
-                      {generateMessage}
+                  <div className="flex items-center justify-between mb-3">
+                      <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Pré-visualização da Mensagem</p>
+                      <button 
+                         onClick={() => {
+                             if (isEditing) {
+                                 localStorage.setItem('SHARE_MESSAGE_TEMPLATE_V2', messageTemplate);
+                             }
+                             setIsEditing(!isEditing);
+                         }}
+                         className="text-xs font-bold text-primary hover:text-primary/80 transition-colors uppercase"
+                      >
+                          {isEditing ? 'Salvar' : 'Editar'}
+                      </button>
                   </div>
+                  
+                  {isEditing ? (
+                      <div className="flex flex-col gap-2">
+                          <textarea 
+                              className="w-full min-h-[300px] p-3 text-sm text-gray-700 dark:text-gray-200 bg-white dark:bg-surface-dark border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none resize-y"
+                              value={messageTemplate}
+                              onChange={(e) => setMessageTemplate(e.target.value)}
+                          />
+                      </div>
+                  ) : (
+                      <div className="text-sm text-gray-700 dark:text-gray-200 whitespace-pre-line leading-relaxed font-medium">
+                          {generateMessage}
+                      </div>
+                  )}
               </div>
 
               <div className="w-full flex gap-3">
