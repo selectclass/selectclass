@@ -18,9 +18,35 @@ export const CourseManager: React.FC<CourseManagerProps> = ({ courseTypes, onAdd
   const [time, setTime] = useState('09:00');
   const [duration, setDuration] = useState('1');
   const [locationType, setLocationType] = useState<'interno' | 'externo'>('interno');
+  const [street, setStreet] = useState('');
+  const [number, setNumber] = useState('');
+  const [neighborhood, setNeighborhood] = useState('');
+  const [city, setCity] = useState('');
+  const [state, setState] = useState('');
+  const [zip, setZip] = useState('');
+  const [referencePoint, setReferencePoint] = useState('');
+  const [messageTemplate, setMessageTemplate] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [localList, setLocalList] = useState<CourseType[]>([]);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+
+  const fetchAddressByCep = async (cep: string) => {
+    const cleanCep = cep.replace(/\D/g, '');
+    if (cleanCep.length !== 8) return;
+    
+    try {
+        const response = await fetch(`https://viacep.com.br/ws/${cleanCep}/json/`);
+        const data = await response.json();
+        if (!data.erro) {
+            setStreet(data.logradouro || '');
+            setNeighborhood(data.bairro || '');
+            setCity(data.localidade || '');
+            setState(data.uf || '');
+        }
+    } catch (e) {
+        console.error('Erro ao buscar CEP', e);
+    }
+  };
 
   useEffect(() => {
     setLocalList([...courseTypes].filter(c => c.model !== 'Palestra').sort((a, b) => (a.order || 0) - (b.order || 0)));
@@ -38,6 +64,14 @@ export const CourseManager: React.FC<CourseManagerProps> = ({ courseTypes, onAdd
         defaultTime: time,
         defaultDuration: duration,
         defaultLocation: locationType,
+        street,
+        number,
+        neighborhood,
+        city,
+        state,
+        zip,
+        referencePoint,
+        messageTemplate: messageTemplate,
         order: editingId ? (courseTypes.find(c => c.id === editingId)?.order || 0) : localList.length
     };
 
@@ -55,6 +89,14 @@ export const CourseManager: React.FC<CourseManagerProps> = ({ courseTypes, onAdd
     setTime('09:00');
     setDuration('1');
     setLocationType('interno');
+    setStreet('');
+    setNumber('');
+    setNeighborhood('');
+    setCity('');
+    setState('');
+    setZip('');
+    setReferencePoint('');
+    setMessageTemplate('');
     setEditingId(null);
   };
 
@@ -65,6 +107,14 @@ export const CourseManager: React.FC<CourseManagerProps> = ({ courseTypes, onAdd
       setTime(course.defaultTime || '09:00');
       setDuration(course.defaultDuration || '1');
       setLocationType(course.defaultLocation || 'interno');
+      setStreet(course.street || '');
+      setNumber(course.number || '');
+      setNeighborhood(course.neighborhood || '');
+      setCity(course.city || '');
+      setState(course.state || '');
+      setZip(course.zip || '');
+      setReferencePoint(course.referencePoint || '');
+      setMessageTemplate(course.messageTemplate || '');
       window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -156,9 +206,18 @@ export const CourseManager: React.FC<CourseManagerProps> = ({ courseTypes, onAdd
                     <MapPinIcon className="w-4 h-4" /> Externo
                 </button>
             </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
+            {locationType === 'externo' && (
+              <div className="grid grid-cols-2 gap-3 mt-3 animate-fade-in">
+                <input type="text" value={street} onChange={(e) => setStreet(e.target.value)} className="col-span-2 px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-bg-dark text-gray-800 dark:text-white focus:ring-2 focus:ring-primary outline-none font-bold placeholder:text-gray-400" placeholder="Rua" />
+                <input type="text" value={number} onChange={(e) => setNumber(e.target.value)} className="px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-bg-dark text-gray-800 dark:text-white focus:ring-2 focus:ring-primary outline-none font-bold placeholder:text-gray-400" placeholder="Número" />
+                <input type="text" value={zip} onChange={(e) => { setZip(e.target.value); fetchAddressByCep(e.target.value); }} className="px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-bg-dark text-gray-800 dark:text-white focus:ring-2 focus:ring-primary outline-none font-bold placeholder:text-gray-400" placeholder="CEP" />
+                <input type="text" value={neighborhood} onChange={(e) => setNeighborhood(e.target.value)} className="col-span-2 px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-bg-dark text-gray-800 dark:text-white focus:ring-2 focus:ring-primary outline-none font-bold placeholder:text-gray-400" placeholder="Bairro" />
+                <input type="text" value={city} onChange={(e) => setCity(e.target.value)} className="px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-bg-dark text-gray-800 dark:text-white focus:ring-2 focus:ring-primary outline-none font-bold placeholder:text-gray-400" placeholder="Cidade" />
+                <input type="text" value={state} onChange={(e) => setState(e.target.value)} className="px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-bg-dark text-gray-800 dark:text-white focus:ring-2 focus:ring-primary outline-none font-bold placeholder:text-gray-400" placeholder="Estado" />
+                <input type="text" value={referencePoint} onChange={(e) => setReferencePoint(e.target.value)} className="col-span-2 px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-bg-dark text-gray-800 dark:text-white focus:ring-2 focus:ring-primary outline-none font-bold placeholder:text-gray-400" placeholder="Ponto de Referência" />
+              </div>
+            )}
+          </div>           <div className="grid grid-cols-2 gap-3">
              <div>
                 <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Horário de Início</label>
                 <div className="relative">
@@ -173,6 +232,17 @@ export const CourseManager: React.FC<CourseManagerProps> = ({ courseTypes, onAdd
                     <input type="text" inputMode="numeric" value={value} onChange={(e) => setValue(formatCurrencyInput(e.target.value))} className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-bg-dark text-gray-800 dark:text-white focus:ring-2 focus:ring-primary outline-none font-bold" placeholder="0,00" />
                 </div>
              </div>
+          </div>
+
+          
+          <div>
+            <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Materiais</label>
+            <textarea 
+                value={messageTemplate}
+                onChange={(e) => setMessageTemplate(e.target.value)}
+                className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-bg-dark text-gray-800 dark:text-white focus:ring-2 focus:ring-primary outline-none font-bold h-32"
+                placeholder="Digite os materiais aqui..."
+            />
           </div>
 
           <div>
