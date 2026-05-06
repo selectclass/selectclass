@@ -23,11 +23,27 @@ export const AllEventsList: React.FC<AllEventsListProps> = ({ events, courseType
 
   const filteredResults = useMemo(() => {
     const search = searchTerm.toLowerCase();
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
     return events
       .filter(e => {
         const isPal = checkIfPalestra(e);
         const matchesCategory = activeTab === 'palestras' ? isPal : !isPal;
         if (!matchesCategory) return false;
+
+        const eDate = e.date ? new Date(e.date) : new Date(0);
+        eDate.setHours(0, 0, 0, 0);
+        
+        const dStr = String(e.duration || '').toLowerCase();
+        let durationNum = 1;
+        if (dStr.includes('dia')) {
+            durationNum = parseInt(dStr) || 1;
+        }
+        const endEventDate = new Date(eDate);
+        endEventDate.setDate(endEventDate.getDate() + (durationNum - 1));
+        
+        if (endEventDate.getTime() < today.getTime()) return false;
 
         if (!search) return true;
         return (e.student || '').toLowerCase().includes(search) || 
@@ -35,11 +51,34 @@ export const AllEventsList: React.FC<AllEventsListProps> = ({ events, courseType
                (e.eventLocation || '').toLowerCase().includes(search);
       })
       .sort((a, b) => {
-          const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-          const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-          return dateB - dateA; // Ordem de criação decrescente: mais recentes primeiro
+          const dateA = a.date ? new Date(a.date).getTime() : 0;
+          const dateB = b.date ? new Date(b.date).getTime() : 0;
+          return dateA - dateB;
       });
   }, [events, searchTerm, activeTab, courseTypes, lectureModels]);
+
+  const groupedResults = useMemo(() => {
+    const groups: { [dateStr: string]: CalendarEvent[] } = {};
+    filteredResults.forEach(event => {
+      if (!event.date) return;
+      const d = new Date(event.date);
+      
+      // Criar a string de data usando valores locais para evitar problemas de fuso horário
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      const dateStr = `${year}-${month}-${day}`;
+      
+      if (!groups[dateStr]) groups[dateStr] = [];
+      groups[dateStr].push(event);
+    });
+    
+    return Object.entries(groups).map(([dateStr, events]) => ({
+      dateStr,
+      date: new Date(events[0].date!),
+      events
+    }));
+  }, [filteredResults]);
 
   return (
     <div className="p-4 space-y-6 animate-fade-in pb-32">
@@ -101,61 +140,65 @@ export const AllEventsList: React.FC<AllEventsListProps> = ({ events, courseType
       </div>
 
       {/* Lista de Resultados */}
-      <div className="space-y-3">
+      <div className="space-y-6">
         {activeTab === 'cursos' && (
-          <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] ml-1">
+          <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] ml-1 -mb-3">
             {filteredResults.length} {filteredResults.length === 1 ? 'Agendamento encontrado' : 'Agendamentos encontrados'}
           </p>
         )}
         
-        {filteredResults.length > 0 ? (
-          filteredResults.map((event, index) => {
-            const date = event.date ? new Date(event.date) : new Date();
-            return (
-              <button 
-                key={event.id}
-                onClick={() => onEventClick(event)}
-                className="w-full bg-white dark:bg-surface-dark p-4 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 text-left hover:scale-[1.01] transition-transform active:scale-[0.98]"
-              >
-                <div className="flex justify-between items-start mb-2">
-                    <div className="flex-1 min-w-0">
-                        <h4 className="font-black text-gray-800 dark:text-white text-base truncate uppercase tracking-tighter">
-                            {activeTab === 'cursos' ? event.student : event.title}
-                        </h4>
-                        <p className={`text-[10px] font-black uppercase tracking-widest ${activeTab === 'palestras' ? 'text-sky-500' : 'text-primary dark:text-blue-300'}`}>
-                            {activeTab === 'cursos' ? event.title : (event.student || 'Evento')}
-                        </p>
-                    </div>
-                    <div className="bg-primary px-2.5 py-1.5 rounded-xl text-center flex-shrink-0 shadow-lg shadow-primary/20">
-                        <span className="text-[10px] font-black text-white block leading-none">
-                            {date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
-                        </span>
-                        <span className="text-[8px] font-black text-white/80 uppercase mt-0.5 block">
-                            {date.getFullYear()}
-                        </span>
-                    </div>
+        {groupedResults.length > 0 ? (
+          groupedResults.map(({ dateStr, date, events }) => (
+            <div key={dateStr} className="bg-white dark:bg-surface-dark rounded-3xl shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden">
+                <div className="bg-primary/5 dark:bg-primary/10 border-b border-primary/10 dark:border-primary/20 py-3.5 px-4 flex items-center justify-center relative">
+                   <div className="absolute left-0 right-0 top-1/2 -translate-y-1/2 h-px bg-gradient-to-r from-transparent via-primary/20 to-transparent"></div>
+                   <div className="bg-primary/10 dark:bg-bg-dark px-4 py-1.5 rounded-full border border-primary/20 relative z-10 flex items-center gap-2 backdrop-blur-sm">
+                      <CalendarIcon className="w-3.5 h-3.5 text-primary" />
+                      <h3 className="text-primary font-black uppercase tracking-widest text-[11px]">
+                         {date.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' })}
+                      </h3>
+                   </div>
                 </div>
-
-                <div className="grid grid-cols-2 gap-2 mt-3 pt-3 border-t border-gray-50 dark:border-gray-800">
-                    <div className="flex items-center gap-1.5 text-gray-400">
-                        <MapPinIcon className="w-3.5 h-3.5 flex-shrink-0" />
-                        <span className="text-[9px] font-bold uppercase truncate">{event.eventLocation || 'Meu Studio'}</span>
-                    </div>
-                    <div className="flex items-center gap-1.5 text-gray-400 justify-end">
-                        <ClockIcon className="w-3.5 h-3.5 flex-shrink-0" />
-                        <span className="text-[9px] font-bold uppercase">{event.time}</span>
-                    </div>
+                <div className="p-3 space-y-3">
+                   {events.map((event) => (
+                      <button 
+                        key={event.id}
+                        onClick={() => onEventClick(event)}
+                        className="w-full bg-gray-50/50 dark:bg-white/5 p-4 rounded-2xl border border-gray-100 dark:border-gray-800/50 text-left hover:scale-[1.01] hover:bg-gray-50 dark:hover:bg-white/10 transition-all active:scale-[0.98] outline-none"
+                      >
+                         <div className="flex justify-between items-start mb-2">
+                             <div className="flex-1 min-w-0">
+                                 <h4 className="font-black text-gray-800 dark:text-white text-base truncate uppercase tracking-tighter">
+                                     {activeTab === 'cursos' ? event.student : event.title}
+                                 </h4>
+                                 <p className={`text-[10px] font-black uppercase tracking-widest ${activeTab === 'palestras' ? 'text-sky-500' : 'text-primary dark:text-blue-300'}`}>
+                                     {activeTab === 'cursos' ? event.title : (event.student || 'Evento')}
+                                 </p>
+                             </div>
+                         </div>
+         
+                         <div className="grid grid-cols-2 gap-2 mt-3 pt-3 border-t border-gray-200/60 dark:border-gray-700">
+                             <div className="flex items-center gap-1.5 text-gray-500 dark:text-gray-400">
+                                 <MapPinIcon className="w-3.5 h-3.5 flex-shrink-0" />
+                                 <span className="text-[9px] font-bold uppercase truncate">{event.eventLocation || 'Meu Studio'}</span>
+                             </div>
+                             <div className="flex items-center gap-1.5 text-gray-500 dark:text-gray-400 justify-end">
+                                 <ClockIcon className="w-3.5 h-3.5 flex-shrink-0" />
+                                 <span className="text-[9px] font-bold uppercase">{event.time}</span>
+                             </div>
+                         </div>
+                         {event.createdAt && (
+                           <div className="mt-2 pt-2 border-t border-gray-200/60 dark:border-gray-700 text-center">
+                             <p className="text-[8px] text-gray-400 dark:text-gray-500 font-medium">
+                               Adicionado em: {new Date(event.createdAt).toLocaleDateString('pt-BR')} - {new Date(event.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
+                             </p>
+                           </div>
+                         )}
+                      </button>
+                   ))}
                 </div>
-                {event.createdAt && (
-                  <div className="mt-2 pt-2 border-t border-gray-50 dark:border-gray-800 text-center">
-                    <p className="text-[8px] text-gray-400 dark:text-gray-500 font-medium">
-                      Adicionado em: {new Date(event.createdAt).toLocaleDateString('pt-BR')} - {new Date(event.createdAt).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-                    </p>
-                  </div>
-                )}
-              </button>
-            );
-          })
+            </div>
+          ))
         ) : (
           <div className="py-20 flex flex-col items-center justify-center opacity-40 text-center px-6">
               <SearchIcon className="w-12 h-12 mb-4 text-gray-300" />
