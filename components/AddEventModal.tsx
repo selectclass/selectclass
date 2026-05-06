@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { CalendarEvent, CourseType, PaymentRecord, Student } from '../types';
+import { COUNTRY_CODES } from '../constants';
 import { XIcon, WhatsAppIcon, CheckIcon, MapPinIcon, DollarSignIcon, TrashIcon, ClockIcon, CalendarIcon, ChevronRightIcon, HomeIcon, UserIcon } from './Icons';
 import { parseCurrency, formatCurrencyInput } from '../utils/currency';
 
@@ -38,6 +39,7 @@ export const AddEventModal: React.FC<AddEventModalProps> = ({
 }) => {
   const [studentName, setStudentName] = useState('');
   const [whatsapp, setWhatsapp] = useState('');
+  const [countryCode, setCountryCode] = useState('+55');
   const [email, setEmail] = useState('');
   const [course, setCourse] = useState('');
   const [locationType, setLocationType] = useState<'interno' | 'externo'>('interno');
@@ -58,7 +60,35 @@ export const AddEventModal: React.FC<AddEventModalProps> = ({
   const [palestraType, setPalestraType] = useState<'MEU' | 'CONVIDADA'>('CONVIDADA');
   const [studentCount, setStudentCount] = useState<number>(1);
   const [includeInAnnualRevenue, setIncludeInAnnualRevenue] = useState<boolean>(true);
-  
+  const [street, setStreet] = useState('');
+  const [number, setNumber] = useState('');
+  const [neighborhood, setNeighborhood] = useState('');
+  const [city, setCity] = useState('');
+  const [state, setState] = useState('');
+const [zip, setZip] = useState('');
+  const [referencePoint, setReferencePoint] = useState('');
+  const [materialsTemplate, setMaterialsTemplate] = useState('');
+
+  const [hasAutoFilledAddress, setHasAutoFilledAddress] = useState(false);
+
+  const fetchAddressByCep = async (cep: string) => {
+    const cleanCep = cep.replace(/\D/g, '');
+    if (cleanCep.length !== 8) return;
+    
+    try {
+        const response = await fetch(`https://viacep.com.br/ws/${cleanCep}/json/`);
+        const data = await response.json();
+        if (!data.erro) {
+            setStreet(data.logradouro || '');
+            setNeighborhood(data.bairro || '');
+            setCity(data.localidade || '');
+            setState(data.uf || '');
+        }
+    } catch (e) {
+        console.error('Erro ao buscar CEP', e);
+    }
+  };
+
   const dropdownRef = useRef<HTMLDivElement>(null);
   const durationDropdownRef = useRef<HTMLDivElement>(null);
   const studentDropdownRef = useRef<HTMLDivElement>(null);
@@ -103,7 +133,17 @@ export const AddEventModal: React.FC<AddEventModalProps> = ({
     if (justOpened || (isOpen && initialEvent)) {
       if (initialEvent) {
           setStudentName(initialEvent.student || '');
-          setWhatsapp(initialEvent.whatsapp || '');
+          
+          const rawWhatsapp = initialEvent.whatsapp || '';
+          const parts = rawWhatsapp.split(' ');
+          if (parts.length > 1 && COUNTRY_CODES.find(c => c.code === parts[0])) {
+              setCountryCode(parts[0]);
+              setWhatsapp(parts.slice(1).join(' '));
+          } else {
+              setWhatsapp(rawWhatsapp);
+              setCountryCode('+55');
+          }
+
           setEmail(initialEvent.email || '');
           setCourse(initialEvent.title || '');
           setLocationType(initialEvent.locationType || 'interno');
@@ -125,6 +165,14 @@ export const AddEventModal: React.FC<AddEventModalProps> = ({
           setPalestraType(initialEvent.palestraType || 'CONVIDADA');
           setStudentCount(initialEvent.studentCount || 1);
           setIncludeInAnnualRevenue(initialEvent.includeInAnnualRevenue !== false);
+          setStreet(initialEvent.street || '');
+          setNumber(initialEvent.number || '');
+          setNeighborhood(initialEvent.neighborhood || '');
+          setCity(initialEvent.city || '');
+          setState(initialEvent.state || '');
+          setZip(initialEvent.zip || '');
+          setReferencePoint(initialEvent.referencePoint || '');
+          setMaterialsTemplate(initialEvent.materialsText || initialEvent.materials?.filter(m => m.checked).map(m => `• ${m.name}`).join('\n') || '');
       } else if (justOpened) {
           const isoDate = initialDate.toISOString().split('T')[0];
           setDateStr(isoDate);
@@ -146,6 +194,7 @@ export const AddEventModal: React.FC<AddEventModalProps> = ({
           setPalestraType('CONVIDADA');
           setStudentCount(1);
           setIncludeInAnnualRevenue(true);
+          setMaterialsTemplate('');
       }
     }
     prevOpenRef.current = isOpen;
@@ -161,17 +210,47 @@ export const AddEventModal: React.FC<AddEventModalProps> = ({
             if (selectedModel.defaultTime) setTimeStr(selectedModel.defaultTime);
             if (selectedModel.defaultValue !== undefined) setValueStr(formatCurrencyInput(selectedModel.defaultValue));
             if (selectedModel.defaultLocation) setLocationType(selectedModel.defaultLocation);
+            
+            const hasAddress = !!(selectedModel.street || selectedModel.number || selectedModel.city || selectedModel.state);
+            setHasAutoFilledAddress(hasAddress);
+            
+            if (selectedModel.street) setStreet(selectedModel.street);
+            if (selectedModel.number) setNumber(selectedModel.number);
+            if (selectedModel.neighborhood) setNeighborhood(selectedModel.neighborhood);
+            if (selectedModel.city) setCity(selectedModel.city);
+            if (selectedModel.state) setState(selectedModel.state);
+            if (selectedModel.zip) setZip(selectedModel.zip);
+            if (selectedModel.referencePoint) setReferencePoint(selectedModel.referencePoint);
+            
+            if (hasAddress) {
+                const fullAddress = [selectedModel.street, selectedModel.number, selectedModel.neighborhood, selectedModel.city, selectedModel.state].filter(Boolean).join(', ');
+                setEventLocation(fullAddress);
+            }
+
+            if (selectedModel.messageTemplate) setMaterialsTemplate(selectedModel.messageTemplate);
             if (selectedModel.defaultDuration) {
                 const num = parseInt(selectedModel.defaultDuration);
                 setDurationStr(!isNaN(num) ? (num === 1 ? '1 dia' : `${num} dias`) : '1 dia');
             }
+        } else {
+            setHasAutoFilledAddress(false);
         }
     }
   };
 
   const selectStudent = (student: Student) => {
     setStudentName(student.name);
-    setWhatsapp(student.phone || '');
+    
+    const rawWhatsapp = student.phone || '';
+    const parts = rawWhatsapp.split(' ');
+    if (parts.length > 1 && COUNTRY_CODES.find(c => c.code === parts[0])) {
+        setCountryCode(parts[0]);
+        setWhatsapp(parts.slice(1).join(' '));
+    } else {
+        setWhatsapp(rawWhatsapp);
+        setCountryCode('+55');
+    }
+
     setEmail(student.email || '');
     setShowStudentSuggestions(false);
   };
@@ -201,10 +280,18 @@ export const AddEventModal: React.FC<AddEventModalProps> = ({
     onSave({
       title: course,
       student: studentName,
-      whatsapp, 
+      whatsapp: countryCode + ' ' + whatsapp, 
       email,
       locationType,
-      eventLocation, 
+      eventLocation,
+      street,
+      number,
+      neighborhood,
+      city,
+      state,
+      zip,
+      referencePoint,
+      materialsText: materialsTemplate,
       time: timeStr, 
       duration: durationStr,
       type: 'class', 
@@ -215,7 +302,7 @@ export const AddEventModal: React.FC<AddEventModalProps> = ({
       paymentDeadlineDays: isPalestraMode ? undefined : deadlineDays,
       paymentFrequency: paymentMethod === 'Facilitado' ? paymentFrequency : undefined,
       payments: finalPayments,
-      materials: initialEvent?.materials,
+      materials: initialEvent ? initialEvent.materials : (courseTypes.find(c => c.name === course)?.defaultMaterials?.map(m => ({ id: Math.random().toString(), name: m.name, checked: false })) || []),
       createdAt: initialEvent?.createdAt || new Date(),
       palestraType: isPalestraMode ? palestraType : undefined,
       studentCount: (isPalestraMode && palestraType === 'MEU') ? studentCount : undefined,
@@ -272,9 +359,18 @@ export const AddEventModal: React.FC<AddEventModalProps> = ({
                   </div>
                   <div>
                     <label className={`block text-[10px] font-black uppercase tracking-widest mb-1 ${isPalestraMode ? 'text-sky-500/70' : 'text-gray-400'}`}>WhatsApp</label>
-                    <div className="relative">
-                        <WhatsAppIcon className={`absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 ${isPalestraMode ? 'text-sky-300' : 'text-gray-300'}`} />
-                        <input type="tel" value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} className={`w-full pl-11 pr-4 py-3 rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-bg-dark text-gray-800 dark:text-white focus:ring-2 ${focusRingClass} outline-none transition-all font-bold`} placeholder="(00) 00000-0000" />
+                    <div className="flex gap-1">
+                        <select 
+                            value={countryCode} 
+                            onChange={(e) => setCountryCode(e.target.value)}
+                            className="px-2 py-3 rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-bg-dark text-gray-800 dark:text-white focus:ring-2 focus:ring-primary outline-none transition-all font-bold text-sm"
+                        >
+                            {COUNTRY_CODES.map(c => <option key={c.code} value={c.code}>{c.code}</option>)}
+                        </select>
+                        <div className="relative flex-1">
+                            <WhatsAppIcon className={`absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 ${isPalestraMode ? 'text-sky-300' : 'text-gray-300'}`} />
+                            <input type="tel" value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} className={`w-full pl-9 pr-3 py-3 rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-bg-dark text-gray-800 dark:text-white focus:ring-2 ${focusRingClass} outline-none transition-all font-bold text-sm`} placeholder="(00) 00000-0000" />
+                        </div>
                     </div>
                   </div>
                   <div>
@@ -339,7 +435,7 @@ export const AddEventModal: React.FC<AddEventModalProps> = ({
                     </div>
                   )}
 
-                  {!(isPalestraMode && palestraType === 'MEU') && (
+                  {isPalestraMode && (
                     <div className="animate-fade-in">
                       <label className={`block text-[10px] font-black uppercase tracking-widest mb-1 ${isPalestraMode ? 'text-sky-500/70' : 'text-gray-400'}`}>Quantidade de Alunas</label>
                       <select 
@@ -375,11 +471,40 @@ export const AddEventModal: React.FC<AddEventModalProps> = ({
                         </button>
                     </div>
                     {locationType === 'externo' && (
-                        <div className="relative animate-fade-in">
-                            <MapPinIcon className={`absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 ${isPalestraMode ? 'text-sky-300' : 'text-gray-300'}`} />
-                            <input type="text" value={eventLocation} onChange={(e) => setEventLocation(e.target.value)} className={`w-full pl-11 pr-4 py-3 rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-bg-dark text-gray-800 dark:text-white focus:ring-2 ${focusRingClass} outline-none transition-all font-bold`} placeholder="Endereço completo..." />
-                        </div>
+                      <div className="space-y-3 animate-fade-in mt-3">
+                         {hasAutoFilledAddress ? (
+                            <div className="p-4 rounded-xl border border-gray-100 dark:border-gray-700 bg-white dark:bg-bg-dark text-gray-800 dark:text-white space-y-1">
+                                <p className="font-bold">{street}, {number || 'S/N'}</p>
+                                <p className="text-sm text-gray-700 dark:text-gray-300">{neighborhood} - {city}/{state}</p>
+                                <p className="text-xs text-gray-500">CEP: {zip}</p>
+                                {referencePoint && <p className="text-xs text-stone-500 italic mt-2">Ref: {referencePoint}</p>}
+                            </div>
+                         ) : (
+                            <>
+                                <input type="text" value={eventLocation} onChange={(e) => setEventLocation(e.target.value)} className={`w-full px-4 py-3 rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-bg-dark text-gray-800 dark:text-white focus:ring-2 ${focusRingClass} outline-none transition-all font-bold`} placeholder="Endereço (Rua, Número, Bairro)..." />
+                                <div className="grid grid-cols-2 gap-3">
+                                    <input type="text" value={street} onChange={(e) => setStreet(e.target.value)} className={`w-full px-4 py-3 rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-bg-dark text-gray-800 dark:text-white focus:ring-2 ${focusRingClass} outline-none transition-all font-bold`} placeholder="Rua" />
+                                    <input type="text" value={number} onChange={(e) => setNumber(e.target.value)} className={`w-full px-4 py-3 rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-bg-dark text-gray-800 dark:text-white focus:ring-2 ${focusRingClass} outline-none transition-all font-bold`} placeholder="Número" />
+                                    <input type="text" value={neighborhood} onChange={(e) => setNeighborhood(e.target.value)} className={`col-span-2 px-4 py-3 rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-bg-dark text-gray-800 dark:text-white focus:ring-2 ${focusRingClass} outline-none transition-all font-bold`} placeholder="Bairro" />
+                                    <input type="text" value={city} onChange={(e) => setCity(e.target.value)} className={`w-full px-4 py-3 rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-bg-dark text-gray-800 dark:text-white focus:ring-2 ${focusRingClass} outline-none transition-all font-bold`} placeholder="Cidade" />
+                                    <input type="text" value={state} onChange={(e) => setState(e.target.value)} className={`w-full px-4 py-3 rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-bg-dark text-gray-800 dark:text-white focus:ring-2 ${focusRingClass} outline-none transition-all font-bold`} placeholder="Estado" />
+                                    <input type="text" value={zip} onChange={(e) => { setZip(e.target.value); fetchAddressByCep(e.target.value); }} className={`w-full px-4 py-3 rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-bg-dark text-gray-800 dark:text-white focus:ring-2 ${focusRingClass} outline-none transition-all font-bold`} placeholder="CEP" />
+                                    <input type="text" value={referencePoint} onChange={(e) => setReferencePoint(e.target.value)} className={`col-span-2 px-4 py-3 rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-bg-dark text-gray-800 dark:text-white focus:ring-2 ${focusRingClass} outline-none transition-all font-bold`} placeholder="Ponto de Referência" />
+                                </div>
+                            </>
+                         )}
+                      </div>
                     )}
+                  </div>
+
+                  <div className="space-y-3">
+                     <label className={`block text-[10px] font-black uppercase tracking-widest mb-1 ${isPalestraMode ? 'text-sky-500/70' : 'text-gray-400'}`}>Materiais</label>
+                     <textarea 
+                        value={materialsTemplate}
+                        onChange={(e) => setMaterialsTemplate(e.target.value)}
+                        className={`w-full px-4 py-3 rounded-xl border border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-bg-dark text-gray-800 dark:text-white focus:ring-2 ${focusRingClass} outline-none transition-all font-bold h-32`}
+                        placeholder="Digite os materiais aqui..."
+                     />
                   </div>
 
                   <div className="space-y-4">
