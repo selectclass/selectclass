@@ -107,7 +107,7 @@ export interface CalendarEvent {
   date?: Date; 
   materials?: MaterialItem[]; 
   abateExpenses?: boolean;
-  paymentFrequency?: 'weekly' | 'biweekly';
+  paymentFrequency?: 'weekly' | 'biweekly' | 'monthly';
   createdAt?: Date;
   palestraType?: 'MEU' | 'CONVIDADA';
   studentCount?: number;
