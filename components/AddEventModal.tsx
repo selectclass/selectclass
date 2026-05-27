@@ -51,7 +51,8 @@ export const AddEventModal: React.FC<AddEventModalProps> = ({
   const [valueStr, setValueStr] = useState('');
   const [depositStr, setDepositStr] = useState(''); 
   const [deadlineDays, setDeadlineDays] = useState<number>(5);
-  const [paymentFrequency, setPaymentFrequency] = useState<'weekly' | 'biweekly' | undefined>(undefined);
+  const [paymentFrequency, setPaymentFrequency] = useState<'weekly' | 'biweekly' | 'monthly' | undefined>(undefined);
+  const [installmentDates, setInstallmentDates] = useState<{ [installment: number]: string }>({});
   const [localPayments, setLocalPayments] = useState<PaymentRecord[]>([]);
   const [showCourseDropdown, setShowCourseDropdown] = useState(false);
   const [showDurationDropdown, setShowDurationDropdown] = useState(false);
@@ -160,6 +161,7 @@ const [zip, setZip] = useState('');
           setDeadlineDays(initialEvent.paymentDeadlineDays || 5);
           setLocalPayments(initialEvent.payments || []);
           setPaymentFrequency(initialEvent.paymentFrequency);
+          setInstallmentDates(initialEvent.installmentDates || {});
           setDepositStr('');
           setPalestraPaymentType(initialEvent.paymentStatus === 'paid' ? 'TOTAL' : 'SINAL');
           setPalestraType(initialEvent.palestraType || 'CONVIDADA');
@@ -301,6 +303,7 @@ const [zip, setZip] = useState('');
       paymentDueDate: isPalestraMode ? undefined : paymentDueDate,
       paymentDeadlineDays: isPalestraMode ? undefined : deadlineDays,
       paymentFrequency: paymentMethod === 'Facilitado' ? paymentFrequency : undefined,
+      installmentDates: paymentMethod === 'Facilitado' && paymentFrequency === 'monthly' ? installmentDates : undefined,
       payments: finalPayments,
       materials: initialEvent ? initialEvent.materials : (courseTypes.find(c => c.name === course)?.defaultMaterials?.map(m => ({ id: Math.random().toString(), name: m.name, checked: false })) || []),
       createdAt: initialEvent?.createdAt || new Date(),
@@ -597,11 +600,63 @@ const [zip, setZip] = useState('');
                           {paymentMethod === 'Facilitado' && (
                             <div className="pt-2 animate-fade-in">
                                 <label className="block text-[10px] font-black text-primary dark:text-primary/70 uppercase tracking-widest mb-2">Frequência de Pagamento</label>
-                                <div className="grid grid-cols-3 gap-2">
-                                    <button type="button" onClick={() => setPaymentFrequency('weekly')} className={`py-2.5 rounded-xl text-[10px] font-black uppercase transition-all border ${paymentFrequency === 'weekly' ? 'bg-primary border-primary text-white shadow-lg' : 'bg-gray-50 border-gray-100 text-gray-400'}`}>Semanal</button>
-                                    <button type="button" onClick={() => setPaymentFrequency('biweekly')} className={`py-2.5 rounded-xl text-[10px] font-black uppercase transition-all border ${paymentFrequency === 'biweekly' ? 'bg-primary border-primary text-white shadow-lg' : 'bg-gray-50 border-gray-100 text-gray-400'}`}>Quinzenal</button>
-                                    <button type="button" onClick={() => setPaymentFrequency(undefined)} className={`py-2.5 rounded-xl text-[10px] font-black uppercase transition-all border ${paymentFrequency === undefined ? 'bg-primary border-primary text-white shadow-lg' : 'bg-gray-50 border-gray-100 text-gray-400'}`}>Nenhum</button>
+                                <div className="grid grid-cols-4 gap-1.5">
+                                    <button type="button" onClick={() => setPaymentFrequency('weekly')} className={`py-2 rounded-lg text-[9px] font-black uppercase transition-all border ${paymentFrequency === 'weekly' ? 'bg-primary border-primary text-white shadow-md' : 'bg-gray-50 border-gray-100 text-gray-400'}`}>Semanal</button>
+                                    <button type="button" onClick={() => setPaymentFrequency('biweekly')} className={`py-2 rounded-lg text-[9px] font-black uppercase transition-all border ${paymentFrequency === 'biweekly' ? 'bg-primary border-primary text-white shadow-md' : 'bg-gray-50 border-gray-100 text-gray-400'}`}>Quinzenal</button>
+                                    <button type="button" onClick={() => setPaymentFrequency('monthly')} className={`py-2 rounded-lg text-[9px] font-black uppercase transition-all border ${paymentFrequency === 'monthly' ? 'bg-primary border-primary text-white shadow-md' : 'bg-gray-50 border-gray-100 text-gray-400'}`}>Mensal</button>
+                                    <button type="button" onClick={() => setPaymentFrequency(undefined)} className={`py-2 rounded-lg text-[9px] font-black uppercase transition-all border ${paymentFrequency === undefined ? 'bg-primary border-primary text-white shadow-md' : 'bg-gray-50 border-gray-100 text-gray-400'}`}>Nenhum</button>
                                 </div>
+                                
+                                {paymentFrequency === 'monthly' && (
+                                  <div className="mt-4 p-3 bg-primary/5 dark:bg-primary/10 rounded-xl border border-primary/20 animate-fade-in">
+                                      <label className="block text-[10px] font-black text-primary uppercase tracking-widest mb-3">Datas das Parcelas Mensais</label>
+                                      
+                                      <div className="space-y-2 mb-3">
+                                          {Object.keys(installmentDates).map((idx) => {
+                                              const i = parseInt(idx);
+                                              return (
+                                                  <div key={idx} className="flex items-center gap-2">
+                                                      <span className="text-[10px] font-bold text-gray-500 w-16">{i}ª Parcela</span>
+                                                      <input 
+                                                          type="date" 
+                                                          value={installmentDates[i] || ''} 
+                                                          onChange={(e) => setInstallmentDates({...installmentDates, [i]: e.target.value})} 
+                                                          className="flex-1 bg-white dark:bg-bg-dark border border-gray-200 dark:border-gray-700 rounded-lg px-2 py-1.5 text-xs text-gray-800 dark:text-gray-200 font-bold outline-none"
+                                                      />
+                                                      <button 
+                                                          type="button" 
+                                                          onClick={() => {
+                                                              const newDates = {...installmentDates};
+                                                              delete newDates[i];
+                                                              const reindexed: {[k: number]: string} = {};
+                                                              let newIdx = 1;
+                                                              Object.keys(newDates).sort((a,b) => parseInt(a)-parseInt(b)).forEach(k => {
+                                                                  reindexed[newIdx++] = newDates[parseInt(k) as any];
+                                                              });
+                                                              setInstallmentDates(reindexed);
+                                                          }} 
+                                                          className="text-gray-400 hover:text-red-500 p-1 transition-colors"
+                                                      >
+                                                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                                      </button>
+                                                  </div>
+                                              );
+                                          })}
+                                      </div>
+                                      
+                                      <button 
+                                          type="button" 
+                                          onClick={() => {
+                                              const maxIdx = Object.keys(installmentDates).length > 0 ? Math.max(...Object.keys(installmentDates).map(k => parseInt(k))) : 0;
+                                              setInstallmentDates({...installmentDates, [maxIdx + 1]: ''});
+                                          }}
+                                          className="w-full flex items-center justify-center gap-1 bg-white dark:bg-bg-dark border border-primary/30 text-primary py-2 rounded-lg text-[10px] font-black uppercase hover:bg-primary hover:text-white transition-all shadow-sm"
+                                      >
+                                          <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 4v16m8-8H4" /></svg>
+                                          Adicionar {Object.keys(installmentDates).length + 1}ª Parcela
+                                      </button>
+                                  </div>
+                                )}
                                 
                                 <div className="animate-fade-in mt-4">
                                   <label className="block text-[10px] font-black text-primary dark:text-primary/70 uppercase tracking-widest mb-2">Quitar até quantos dias antes?</label>
