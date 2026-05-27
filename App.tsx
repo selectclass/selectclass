@@ -204,7 +204,7 @@ function App() {
       const courseDate = new Date(evt.date);
       courseDate.setHours(0,0,0,0);
       const deadlineDays = evt.paymentDeadlineDays || 0;
-      const interval = evt.paymentFrequency === 'weekly' ? 7 : 15;
+      const interval = evt.paymentFrequency === 'weekly' ? 7 : evt.paymentFrequency === 'monthly' ? 30 : 15;
       
       const maxDate = new Date(courseDate);
       maxDate.setDate(courseDate.getDate() - deadlineDays);
@@ -222,12 +222,23 @@ function App() {
         }
         
         let finalD = d;
-        if (evt.installmentDates && evt.installmentDates[i]) {
-          let dStr = evt.installmentDates[i];
-          if (dStr.indexOf('T') === -1) {
-            dStr += 'T12:00:00';
+        let hasMoreCustomDates = false;
+        if (evt.installmentDates) {
+          const keys = Object.keys(evt.installmentDates).map(Number);
+          if (keys.length > 0) {
+             hasMoreCustomDates = i < Math.max(...keys);
           }
-          finalD = new Date(dStr);
+          if (evt.installmentDates[i]) {
+            let dStr = evt.installmentDates[i];
+            if (dStr.indexOf('T') === -1) {
+              dStr += 'T12:00:00';
+            }
+            finalD = new Date(dStr);
+          }
+        }
+        
+        if (hasMoreCustomDates) {
+           isLast = false;
         }
         
         scheduleDates.push(finalD);
