@@ -103,11 +103,11 @@ Qualquer dúvida, estou à disposição!
 
     let parcelamentoMsg = '';
     if (event.paymentFrequency && event.createdAt && !isPaid) {
-        parcelamentoMsg += `\n\n*PAGAMENTO FACILITADO (${event.paymentFrequency === 'weekly' ? 'Semanal' : 'Quinzenal'})*\n`;
+        parcelamentoMsg += `\n\n*PAGAMENTO FACILITADO (${event.paymentFrequency === 'weekly' ? 'Semanal' : event.paymentFrequency === 'monthly' ? 'Mensal' : 'Quinzenal'})*\n`;
         const courseDate = event.date ? new Date(event.date) : new Date();
         courseDate.setHours(0,0,0,0);
         const deadlineDays = event.paymentDeadlineDays || 0;
-        const interval = event.paymentFrequency === 'weekly' ? 7 : 15;
+        const interval = event.paymentFrequency === 'weekly' ? 7 : event.paymentFrequency === 'monthly' ? 30 : 15;
         
         const maxDate = new Date(courseDate);
         maxDate.setDate(courseDate.getDate() - deadlineDays);
@@ -119,12 +119,33 @@ Qualquer dúvida, estou à disposição!
             let d = new Date(startDate);
             d.setDate(startDate.getDate() + (interval * i));
             
+            let isLast = false;
             if (d.getTime() >= maxDate.getTime()) {
-                parcelamentoMsg += `• Parcela ${i}: ${maxDate.toLocaleDateString('pt-BR')}\n`;
-                break;
-            } else {
-                parcelamentoMsg += `• Parcela ${i}: ${d.toLocaleDateString('pt-BR')}\n`;
+                d = new Date(maxDate);
+                isLast = true;
             }
+            
+            let finalD = d;
+            let hasMoreCustomDates = false;
+            if (event.installmentDates) {
+                const keys = Object.keys(event.installmentDates).map(Number);
+                if (keys.length > 0) {
+                   hasMoreCustomDates = i < Math.max(...keys);
+                }
+                if (event.installmentDates[i]) {
+                    let dStr = event.installmentDates[i];
+                    if (dStr.indexOf('T') === -1) dStr += 'T12:00:00';
+                    finalD = new Date(dStr);
+                }
+            }
+            
+            if (hasMoreCustomDates) {
+               isLast = false;
+            }
+            
+            parcelamentoMsg += `• Parcela ${i}: ${finalD.toLocaleDateString('pt-BR')}\n`;
+            
+            if (isLast) break;
             i++;
             if (i > 50) break; 
         }
