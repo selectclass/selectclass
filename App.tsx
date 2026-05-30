@@ -165,7 +165,7 @@ function App() {
   const [quickAddMaterialConfirm, setQuickAddMaterialConfirm] = useState<{ isOpen: boolean, eventId: string, name: string, cost: number } | null>(null);
   const [quickRemoveMaterialConfirm, setQuickRemoveMaterialConfirm] = useState<{ isOpen: boolean, eventId: string, materialId: string, materialName: string } | null>(null);
   const [deleteStudentData, setDeleteStudentData] = useState<{ isOpen: boolean, studentId: string | null }>({ isOpen: false, studentId: null });
-  const [shareData, setShareData] = useState<{ isOpen: boolean, event: CalendarEvent | null }>({ isOpen: false, event: null });
+  const [shareData, setShareData] = useState<{ isOpen: boolean, event: CalendarEvent | null, mode?: 'schedule' | 'payment' }>({ isOpen: false, event: null });
   const [chargeData, setChargeData] = useState<{ isOpen: boolean, event: CalendarEvent | null }>({ isOpen: false, event: null });
   const [isStudentModalOpen, setIsStudentModalOpen] = useState(false);
   const [editingStudent, setEditingStudent] = useState<Student | null>(null);
@@ -1291,7 +1291,7 @@ function App() {
         await api.put(path + '/' + updatedEv.id, updatedEv); 
         refreshData(); 
         setIsPaymentModalOpen(false);
-        setShareData({ isOpen: true, event: updatedEv });
+        setShareData({ isOpen: true, event: updatedEv, mode: 'payment' });
       }} />
       <ConfirmationModal isOpen={deleteData.isOpen} onClose={() => setDeleteData({isOpen: false, eventId: null})} onConfirm={executeDelete} title="Excluir Agendamento" message="" />
       
@@ -1357,7 +1357,7 @@ function App() {
         </div>
       )}
 
-      <ShareModal isOpen={shareData.isOpen} onClose={() => setShareData({ isOpen: false, event: null })} event={shareData.event} courseTypes={courseTypes} />
+      <ShareModal isOpen={shareData.isOpen} onClose={() => setShareData({ isOpen: false, event: null, mode: 'schedule' })} event={shareData.event} courseTypes={courseTypes} mode={shareData.mode} />
       <ChargeModal isOpen={chargeData.isOpen} onClose={() => setChargeData({ isOpen: false, event: null })} event={chargeData.event} />
     </div>
   );
