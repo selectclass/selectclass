@@ -8,11 +8,13 @@ interface ShareModalProps {
   onClose: () => void;
   event: CalendarEvent | null;
   courseTypes: CourseType[];
+  mode?: 'schedule' | 'payment';
 }
 
-export const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, event, courseTypes }) => {
+export const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, event, courseTypes, mode = 'schedule' }) => {
   const [isCopied, setIsCopied] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  
   const [messageTemplate, setMessageTemplate] = useState(() => {
     return localStorage.getItem('SHARE_MESSAGE_TEMPLATE_V2') || `CONFIRMAÇÃO DE AGENDAMENTO
 
@@ -37,6 +39,22 @@ Qualquer dúvida, estou à disposição!
 {{MATERIAIS}}
 {{/SE_MATERIAIS}}`;
   });
+
+  const [paymentTemplate, setPaymentTemplate] = useState(() => {
+    return localStorage.getItem('SHARE_MESSAGE_PAYMENT_TEMPLATE_V1') || `RECIBO DE PAGAMENTO
+
+CURSO: {{CURSO}}
+DATA: {{DATA}}
+
+RESUMO FINANCEIRO
+* Valor Total: R$ {{TOTAL}}
+* Total Já Pago: R$ {{TOTAL_PAGO}}
+* {{STATUS_PAGAMENTO}}{{PARCELAMENTO}}
+
+Qualquer dúvida, estou à disposição!`;
+  });
+
+  const activeTemplate = mode === 'payment' ? paymentTemplate : messageTemplate;
 
   const courseType = useMemo(() => courseTypes.find(c => c.name === event?.title), [event, courseTypes]);
 
@@ -153,7 +171,7 @@ Qualquer dúvida, estou à disposição!
         parcelamentoMsg += `\nAtenção: *A quitação total do curso é de até 5 dias antes do curso, não é possível quitar no dia do curso. Em caso de cancelar a sua inscrição não será devolvido e perderá o sinal.*\n`;
     }
 
-    let msg = messageTemplate
+    let msg = activeTemplate
         .replace('{{CURSO}}', event.title || '')
         .replace('{{DATA}}', formattedDate)
         .replace('{{HORARIO}}', event.time || '')
@@ -161,6 +179,7 @@ Qualquer dúvida, estou à disposição!
         .replace('{{LOCAL}}', address)
         .replace('{{TOTAL}}', totalValue.toFixed(2).replace('.', ','))
         .replace('{{SINAL}}', signalPaid.toFixed(2).replace('.', ','))
+        .replace('{{TOTAL_PAGO}}', totalPaid.toFixed(2).replace('.', ','))
         .replace('{{METODO}}', event.paymentMethod || '-')
         .replace('{{STATUS_PAGAMENTO}}', isPaid ? 'Pagamento Quitado' : `Saldo Restante: R$ ${remaining.toFixed(2).replace('.', ',')}`)
         .replace('{{PARCELAMENTO}}', parcelamentoMsg);
@@ -238,7 +257,11 @@ Qualquer dúvida, estou à disposição!
                       <button 
                          onClick={() => {
                              if (isEditing) {
-                                 localStorage.setItem('SHARE_MESSAGE_TEMPLATE_V2', messageTemplate);
+                                 if (mode === 'payment') {
+                                     localStorage.setItem('SHARE_MESSAGE_PAYMENT_TEMPLATE_V1', paymentTemplate);
+                                 } else {
+                                     localStorage.setItem('SHARE_MESSAGE_TEMPLATE_V2', messageTemplate);
+                                 }
                              }
                              setIsEditing(!isEditing);
                          }}
@@ -252,8 +275,11 @@ Qualquer dúvida, estou à disposição!
                       <div className="flex flex-col gap-2">
                           <textarea 
                               className="w-full min-h-[300px] p-3 text-sm text-gray-700 dark:text-gray-200 bg-white dark:bg-surface-dark border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-primary focus:border-transparent outline-none resize-y"
-                              value={messageTemplate}
-                              onChange={(e) => setMessageTemplate(e.target.value)}
+                              value={activeTemplate}
+                              onChange={(e) => {
+                                  if (mode === 'payment') setPaymentTemplate(e.target.value);
+                                  else setMessageTemplate(e.target.value);
+                              }}
                           />
                       </div>
                   ) : (
