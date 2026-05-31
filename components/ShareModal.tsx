@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { CalendarEvent, CourseType } from '../types';
-import { ChevronLeftIcon, CheckIcon, WhatsAppIcon, ShareIcon, MapPinIcon, HomeIcon } from './Icons';
+import { ChevronLeftIcon, XIcon, CheckIcon, WhatsAppIcon, ShareIcon, MapPinIcon, HomeIcon } from './Icons';
 
 interface ShareModalProps {
   isOpen: boolean;
@@ -41,17 +41,10 @@ Qualquer dúvida, estou à disposição!
   });
 
   const [paymentTemplate, setPaymentTemplate] = useState(() => {
-    return localStorage.getItem('SHARE_MESSAGE_PAYMENT_TEMPLATE_V1') || `RECIBO DE PAGAMENTO
-
-CURSO: {{CURSO}}
-DATA: {{DATA}}
-
-RESUMO FINANCEIRO
-* Valor Total: R$ {{TOTAL}}
-* Total Já Pago: R$ {{TOTAL_PAGO}}
-* {{STATUS_PAGAMENTO}}{{PARCELAMENTO}}
-
-Qualquer dúvida, estou à disposição!`;
+    return localStorage.getItem('SHARE_MESSAGE_PAYMENT_TEMPLATE_V2') || `*RESUMO FINANCEIRO*
+*Valor Total:* R$ {{TOTAL}}
+*Valor Pago:* R$ {{TOTAL_PAGO}}
+*Restante:* R$ {{RESTANTE}}`;
   });
 
   const activeTemplate = mode === 'payment' ? paymentTemplate : messageTemplate;
@@ -180,6 +173,7 @@ Qualquer dúvida, estou à disposição!`;
         .replace('{{TOTAL}}', totalValue.toFixed(2).replace('.', ','))
         .replace('{{SINAL}}', signalPaid.toFixed(2).replace('.', ','))
         .replace('{{TOTAL_PAGO}}', totalPaid.toFixed(2).replace('.', ','))
+        .replace('{{RESTANTE}}', remaining.toFixed(2).replace('.', ','))
         .replace('{{METODO}}', event.paymentMethod || '-')
         .replace('{{STATUS_PAGAMENTO}}', isPaid ? 'Pagamento Quitado' : `Saldo Restante: R$ ${remaining.toFixed(2).replace('.', ',')}`)
         .replace('{{PARCELAMENTO}}', parcelamentoMsg);
@@ -226,9 +220,9 @@ Qualquer dúvida, estou à disposição!`;
           
           <button 
             onClick={onClose}
-            className="absolute top-4 right-4 p-2 rounded-full bg-gray-100 text-gray-600 dark:bg-white/10 dark:text-white hover:bg-gray-200 dark:hover:bg-white/20 hover:text-primary transition-colors z-10"
+            className="absolute top-4 right-4 p-2 rounded-xl bg-gray-100 dark:bg-white/5 text-gray-400 hover:text-primary hover:bg-gray-200 dark:hover:bg-white/10 transition-all active:scale-95 border border-gray-200 dark:border-gray-800 shadow-sm z-10" title="Fechar"
           >
-            <ChevronLeftIcon className="w-5 h-5" />
+            <XIcon className="w-4 h-4" />
           </button>
 
           <div className="flex flex-col items-center pt-4">
@@ -258,7 +252,7 @@ Qualquer dúvida, estou à disposição!`;
                          onClick={() => {
                              if (isEditing) {
                                  if (mode === 'payment') {
-                                     localStorage.setItem('SHARE_MESSAGE_PAYMENT_TEMPLATE_V1', paymentTemplate);
+                                     localStorage.setItem('SHARE_MESSAGE_PAYMENT_TEMPLATE_V2', paymentTemplate);
                                  } else {
                                      localStorage.setItem('SHARE_MESSAGE_TEMPLATE_V2', messageTemplate);
                                  }
