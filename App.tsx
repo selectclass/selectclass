@@ -665,17 +665,7 @@ function App() {
   };
 
   const handleShareFinancialSummary = (event: CalendarEvent) => {
-    const totalValue = event.value || 0;
-    const totalPaid = event.payments?.reduce((acc, p) => acc + p.amount, 0) || 0;
-    const remaining = Math.max(0, totalValue - totalPaid);
-    
-    const message = `*RESUMO FINANCEIRO*\n` +
-      `*Valor Total:* R$ ${totalValue.toFixed(2).replace('.', ',')}\n` +
-      `*Valor Pago:* R$ ${totalPaid.toFixed(2).replace('.', ',')}\n` +
-      `*Restante:* R$ ${remaining.toFixed(2).replace('.', ',')}`;
-
-    const waLink = `https://wa.me/${event.whatsapp?.replace(/\D/g, '')}?text=${encodeURIComponent(message)}`;
-    window.open(waLink, '_blank');
+    setShareData({ isOpen: true, event, mode: 'payment' });
   };
 
   const handleSaveCourseOrder = async (orderedList: CourseType[]) => {
@@ -1160,7 +1150,7 @@ function App() {
                 <div className="absolute right-0 mt-2 w-72 bg-white dark:bg-surface-dark rounded-2xl shadow-2xl border border-gray-100 dark:border-gray-800 overflow-hidden z-[110] animate-slide-up">
                   <div className="p-4 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center bg-gray-50 dark:bg-white/5">
                     <h3 className="text-xs font-black text-gray-800 dark:text-white uppercase tracking-widest">Notificações</h3>
-                    <button onClick={() => setIsNotificationsOpen(false)} className="text-gray-400 hover:text-primary transition-colors"><ChevronLeftIcon className="w-4 h-4" /></button>
+                    <button onClick={() => setIsNotificationsOpen(false)} className="text-gray-400 hover:text-primary transition-colors"><XIcon className="w-4 h-4" /></button>
                   </div>
                   <div className="max-h-96 overflow-y-auto">
                     {notifications.length === 0 ? (
@@ -1229,8 +1219,9 @@ function App() {
       )}
       {isTypeSelectionOpen && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/60 backdrop-blur-md animate-fade-in" onClick={() => setIsTypeSelectionOpen(false)}>
-              <div className="bg-white dark:bg-surface-dark w-full max-w-xs rounded-3xl p-6 shadow-2xl border border-gray-100 dark:border-gray-800" onClick={(e) => e.stopPropagation()}>
-                  <div className="flex flex-col items-center mb-6 relative"><button onClick={() => setIsTypeSelectionOpen(false)} className="absolute -top-1 -right-1 text-gray-400 p-1 hover:text-primary transition-colors"><ChevronLeftIcon className="w-5 h-5" /></button><h3 className="text-base font-black text-gray-800 dark:text-white uppercase tracking-tighter whitespace-nowrap">NOVO AGENDAMENTO</h3></div>
+              <div className="bg-white dark:bg-surface-dark w-full max-w-xs rounded-3xl p-6 shadow-2xl border border-gray-100 dark:border-gray-800 relative" onClick={(e) => e.stopPropagation()}>
+                  <button onClick={() => setIsTypeSelectionOpen(false)} className="absolute top-4 right-4 p-2 rounded-xl bg-gray-100 dark:bg-white/5 text-gray-400 hover:text-primary hover:bg-gray-200 dark:hover:bg-white/10 transition-all active:scale-95 border border-gray-200 dark:border-gray-800 shadow-sm z-10" title="Fechar"><XIcon className="w-4 h-4" /></button>
+                  <div className="flex flex-col items-center mb-6 pt-2"><h3 className="text-base font-black text-gray-800 dark:text-white uppercase tracking-tighter whitespace-nowrap">NOVO AGENDAMENTO</h3></div>
                   <div className="space-y-3">
                       <button onClick={() => { setPreSelectedModel('Curso'); setIsTypeSelectionOpen(false); setEditingEvent(null); setIsAddEventOpen(true); }} className="w-full flex items-center gap-3 py-2.5 px-4 bg-primary/5 hover:bg-primary/10 dark:bg-primary/10 dark:hover:bg-primary/20 rounded-full border border-primary/10 dark:border-primary/20 transition-all group active:scale-[0.98]">
                           <div className="w-8 h-8 rounded-full bg-primary text-white shadow-md flex items-center justify-center"><GraduationCapIcon className="w-5 h-5" /></div>
