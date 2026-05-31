@@ -1,5 +1,5 @@
 import React from 'react';
-import { AlertCircleIcon, ChevronLeftIcon } from './Icons';
+import { AlertCircleIcon, ChevronLeftIcon, XIcon } from './Icons';
 
 interface ConfirmationModalProps {
   isOpen: boolean;
@@ -39,9 +39,9 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
           
           <button 
             onClick={onClose}
-            className="absolute top-4 right-4 p-2 rounded-full bg-gray-100 dark:bg-white/10 text-gray-500 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-white/20 hover:text-primary transition-colors"
+            className="absolute top-4 right-4 p-2 rounded-xl bg-gray-100 dark:bg-white/5 text-gray-400 hover:text-primary hover:bg-gray-200 dark:hover:bg-white/10 transition-all active:scale-95 border border-gray-200 dark:border-gray-800 shadow-sm z-10" title="Fechar"
           >
-            <ChevronLeftIcon className="w-4 h-4" />
+            <XIcon className="w-4 h-4" />
           </button>
 
           <div className="flex flex-col items-center text-center">
@@ -68,7 +68,7 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
                 </button>
                 <button
                   onClick={onClose}
-                  className="flex-1 py-3 px-4 rounded-xl bg-primary text-white font-bold shadow-lg shadow-primary/30 hover:bg-primary-dark transition-all transform active:scale-95 uppercase tracking-widest text-[10px]"
+                  className="flex-1 py-3 px-4 rounded-xl bg-red-500 text-white font-bold shadow-lg shadow-red-500/30 hover:bg-red-600 transition-all transform active:scale-95 uppercase tracking-widest text-[10px]"
                 >
                   {cancelLabel}
                 </button>
