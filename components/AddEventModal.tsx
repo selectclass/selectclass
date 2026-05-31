@@ -322,7 +322,7 @@ const [zip, setZip] = useState('');
       <div className="fixed inset-0 bg-black/60 z-[80] backdrop-blur-sm transition-opacity" onClick={onClose} />
       <div className="fixed inset-0 z-[90] flex items-center justify-center p-4 pointer-events-none">
         <div className={`bg-[#F3F4F6] dark:bg-bg-dark w-full max-w-lg rounded-2xl shadow-2xl pointer-events-auto transform transition-all scale-100 max-h-[90vh] overflow-y-auto no-scrollbar relative border-t-8 ${isPalestraMode ? 'border-sky-500' : 'border-primary'}`}>
-          <button onClick={onClose} className="absolute top-4 right-4 p-2 rounded-full bg-white dark:bg-white/10 text-gray-500 dark:text-gray-300 hover:text-primary hover:bg-gray-100 dark:hover:bg-white/20 transition-colors z-10 shadow-sm"><ChevronLeftIcon className="w-5 h-5" /></button>
+          <button onClick={onClose} className="absolute top-4 right-4 p-2 rounded-xl bg-gray-100 dark:bg-white/5 text-gray-400 hover:text-primary hover:bg-gray-200 dark:hover:bg-white/10 transition-all active:scale-95 border border-gray-200 dark:border-gray-800 shadow-sm z-10" title="Fechar"><XIcon className="w-4 h-4" /></button>
           <div className="p-6 space-y-4">
             <h2 className={`text-2xl font-black mb-2 uppercase tracking-tighter ${isPalestraMode ? 'text-sky-500' : 'text-gray-800 dark:text-white'}`}>
                 {initialEvent ? 'Editar Agendamento' : (isPalestraMode ? 'Agendar Palestra' : 'Novo Agendamento')}
