@@ -653,7 +653,6 @@ function App() {
     const updatedEv = { ...event, payments: updatedPayments, date: event.date instanceof Date ? event.date.toISOString() : event.date };
     await api.put(`${path}/${event.id}`, updatedEv);
     refreshData();
-    setShareData({ isOpen: true, event: updatedEv as any });
   };
 
   const handleChangeInstallmentDate = async (event: CalendarEvent, installment: number, newDate: string) => {
@@ -1282,7 +1281,6 @@ function App() {
         await api.put(path + '/' + updatedEv.id, updatedEv); 
         refreshData(); 
         setIsPaymentModalOpen(false);
-        setShareData({ isOpen: true, event: updatedEv, mode: 'payment' });
       }} />
       <ConfirmationModal isOpen={deleteData.isOpen} onClose={() => setDeleteData({isOpen: false, eventId: null})} onConfirm={executeDelete} title="Excluir Agendamento" message="" />
       
