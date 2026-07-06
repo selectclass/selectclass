@@ -10,6 +10,7 @@ interface CalendarProps {
   events?: CalendarEvent[];
   courseTypes?: CourseType[];
   lectureModels?: LectureModel[];
+  showTooltipForEvents?: boolean;
 }
 
 export const Calendar: React.FC<CalendarProps> = ({ 
@@ -19,7 +20,8 @@ export const Calendar: React.FC<CalendarProps> = ({
   isDateBlocked, 
   events = [],
   courseTypes = [],
-  lectureModels = []
+  lectureModels = [],
+  showTooltipForEvents = false
 }) => {
   const [currentMonth, setCurrentMonth] = useState(new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1));
 
@@ -97,6 +99,33 @@ export const Calendar: React.FC<CalendarProps> = ({
     return type;
   };
 
+  const getDayEventsList = (dayDate: Date): string[] => {
+    const dayDateString = dayDate.toDateString();
+    const eventNames: string[] = [];
+    events.forEach(e => {
+       if (!e.date) return;
+       const eDate = new Date(e.date);
+       const dStr = String(e.duration || '').toLowerCase();
+       let durationNum = 1;
+       if (dStr.includes('dia')) {
+         durationNum = parseInt(dStr) || 1;
+       }
+       for (let j = 0; j < durationNum; j++) {
+         const currentRangeDay = new Date(eDate);
+         currentRangeDay.setDate(eDate.getDate() + j);
+         if (currentRangeDay.toDateString() === dayDateString) {
+           if (!eventNames.includes(e.title)) {
+             eventNames.push(e.title);
+           }
+           break;
+         }
+       }
+    });
+    return eventNames;
+  };
+
+  const [activeTooltipDate, setActiveTooltipDate] = useState<string | null>(null);
+
   const renderDays = () => {
     const totalDays = daysInMonth(currentMonth);
     const startDay = firstDayOfMonth(currentMonth);
@@ -127,11 +156,32 @@ export const Calendar: React.FC<CalendarProps> = ({
         dayStyle = 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-white/10 font-medium';
       }
 
+      const dayEventNames = getDayEventsList(date);
+
       days.push(
-        <div key={i} className="flex flex-col items-center">
+        <div key={i} className="flex flex-col items-center relative">
+          {showTooltipForEvents && activeTooltipDate === date.toDateString() && dayEventNames.length > 0 && (
+            <div className="absolute bottom-full mb-1 z-50 bg-[#1A4373] text-white text-[10px] font-bold rounded-lg px-2.5 py-1.5 whitespace-nowrap shadow-xl animate-fade-in">
+               {dayEventNames.map((name, idx) => <div key={idx}>{name}</div>)}
+               <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-[#1A4373]" />
+            </div>
+          )}
           <button
             disabled={blocked}
-            onClick={() => onSelectDate(date)}
+            onClick={() => {
+              if (showTooltipForEvents) {
+                if (dayEventNames.length > 0) {
+                   if (activeTooltipDate === date.toDateString()) {
+                      setActiveTooltipDate(null);
+                   } else {
+                      setActiveTooltipDate(date.toDateString());
+                   }
+                } else {
+                   setActiveTooltipDate(null);
+                }
+              }
+              onSelectDate(date);
+            }}
             className={`h-8 w-8 rounded-full flex items-center justify-center text-sm transition-all duration-200 ${dayStyle}
               ${!blocked && isToday && !isSelected && !eventType ? 'border border-primary text-primary dark:text-primary/70' : ''}
             `}
