@@ -18,6 +18,7 @@ import { MaterialsScreen } from './components/MaterialsScreen';
 import { AnalyticsScreen } from './components/AnalyticsScreen'; 
 import { HistoryScreen } from './components/HistoryScreen'; 
 import { ExpensesScreen } from './components/ExpensesScreen';
+import { CotacoesScreen } from './components/CotacoesScreen';
 import { AllEventsList } from './components/AllEventsList';
 import { StudentModal } from './components/StudentModal';
 import { LoginScreen } from './components/LoginScreen'; 
@@ -1111,6 +1112,7 @@ function App() {
       case AppView.MATERIALS: return <MaterialsScreen courseTypes={courseTypes} onUpdateCourse={(c) => api.put('v1/courses/' + c.id, c).then(refreshData)} onClose={() => setCurrentView(AppView.HOME)} />;
       case AppView.ANALYTICS: return <AnalyticsScreen events={allEvents} courseTypes={courseTypes} lectureModels={lectureModels} onClose={() => setCurrentView(AppView.HOME)} />;
       case AppView.EXPENSES: return <ExpensesScreen expenses={expenses} events={allEvents} courseTypes={courseTypes} lectureModels={lectureModels} onAddExpense={handleAddExpense} onDeleteExpense={handleDeleteExpense} onClose={() => setCurrentView(AppView.HOME)} />;
+      case AppView.COTACOES: return <CotacoesScreen api={api} generateId={generateId} onClose={() => setCurrentView(AppView.HOME)} events={allEvents} courseTypes={courseTypes} lectureModels={lectureModels} />;
       case AppView.SETTINGS: return <SettingsScreen isDarkMode={isDarkMode} onToggleTheme={() => setIsDarkMode(!isDarkMode)} primaryColor={primaryColor} onUpdateColor={setPrimaryColor} instructorName={instructorName} onUpdateInstructorName={setInstructorName} onClearAllData={() => {}} currentUsername={credentials.user} onUpdateCredentials={handleUpdateCredentials} onClose={() => setCurrentView(AppView.HOME)} />;
       default: return null;
     }
