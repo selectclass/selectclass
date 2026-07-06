@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { AppView } from '../types';
-import { HomeIcon, DollarSignIcon, SettingsIcon, UsersIcon, BoxIcon, HistoryIcon, TrophyIcon, LogOutIcon, GraduationCapIcon, MicIcon } from './Icons';
+import { HomeIcon, DollarSignIcon, SettingsIcon, UsersIcon, BoxIcon, HistoryIcon, TrophyIcon, LogOutIcon, GraduationCapIcon, MicIcon, MapPinIcon, TrendingDownIcon } from './Icons';
 
 interface DrawerProps {
   isOpen: boolean;
@@ -20,7 +20,8 @@ export const Drawer: React.FC<DrawerProps> = ({ isOpen, onClose, currentView, on
     { view: AppView.LECTURE_MODELS, label: 'Adicionar Palestra', icon: <MicIcon className="w-5 h-5" /> },
     { view: AppView.MATERIALS, label: 'Materiais', icon: <BoxIcon className="w-5 h-5" /> },
     { view: AppView.FINANCIAL, label: 'Financeiro', icon: <DollarSignIcon className="w-5 h-5" /> },
-    { view: AppView.EXPENSES, label: 'Despesas', icon: <DollarSignIcon className="w-5 h-5" /> },
+    { view: AppView.EXPENSES, label: 'Despesas', icon: <TrendingDownIcon className="w-5 h-5" /> },
+    { view: AppView.COTACOES, label: 'Cotação', icon: <MapPinIcon className="w-5 h-5" /> },
     { view: AppView.ANALYTICS, label: 'Ranking', icon: <TrophyIcon className="w-5 h-5" /> }, 
     { view: AppView.SETTINGS, label: 'Ajustes', icon: <SettingsIcon className="w-5 h-5" /> },
   ];
