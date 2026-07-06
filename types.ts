@@ -11,7 +11,29 @@ export enum AppView {
   HISTORY = 'HISTORY',
   LECTURE_MODELS = 'LECTURE_MODELS',
   ALL_EVENTS = 'ALL_EVENTS',
-  MESSAGE_CENTER = 'MESSAGE_CENTER'
+  MESSAGE_CENTER = 'MESSAGE_CENTER',
+  COTACOES = 'COTACOES'
+}
+
+export interface CotacaoCategoria {
+  id: string;
+  name: string;
+}
+
+export interface CotacaoItem {
+  id: string;
+  categoryId: string;
+  description: string;
+  value: number;
+}
+
+export interface Cotacao {
+  id: string;
+  title: string;
+  date: Date;
+  items: CotacaoItem[];
+  notes?: string;
+  createdAt: Date;
 }
 
 export interface Expense {
