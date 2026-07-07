@@ -61,6 +61,7 @@ export const CotacoesScreen: React.FC<CotacoesScreenProps> = ({ api, generateId,
         const parsedQuotes = Object.values(quotesRes).map((q: any) => ({
           ...q,
           date: new Date(q.date),
+          endDate: q.endDate ? new Date(q.endDate) : undefined,
           createdAt: new Date(q.createdAt),
           items: q.items || []
         }));
@@ -143,7 +144,19 @@ export const CotacoesScreen: React.FC<CotacoesScreenProps> = ({ api, generateId,
 
   const filteredCotacoes = cotacoes.filter(quote => {
     const matchesSearch = quote.title.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesDate = showAllDates || (quote.date.toISOString().split('T')[0] === selectedDate.toISOString().split('T')[0]);
+    
+    let matchesDate = showAllDates;
+    if (!showAllDates) {
+      const qDate = quote.date.toISOString().split('T')[0];
+      const sDate = selectedDate.toISOString().split('T')[0];
+      if (quote.endDate) {
+        const endDateStr = quote.endDate.toISOString().split('T')[0];
+        matchesDate = sDate >= qDate && sDate <= endDateStr;
+      } else {
+        matchesDate = qDate === sDate;
+      }
+    }
+
     return matchesSearch && matchesDate;
   });
 
@@ -246,6 +259,7 @@ export const CotacoesScreen: React.FC<CotacoesScreenProps> = ({ api, generateId,
                       <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 flex items-center gap-1">
                         <CalendarIcon className="w-3 h-3" />
                         {quote.date.toLocaleDateString('pt-BR')}
+                        {quote.endDate ? ` a ${quote.endDate.toLocaleDateString('pt-BR')}` : ''}
                       </p>
                     </div>
                     <div className="flex items-center gap-2">
@@ -417,22 +431,47 @@ const QuoteModal = ({ quote, categorias, onSave, onClose, generateId, getDayEven
                 placeholder="Destino ou Motivo"
               />
             </div>
-            <div>
-              <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-1.5">Data</label>
-              <input 
-                type="date" 
-                value={data.date.toISOString().split('T')[0]} 
-                onChange={e => {
-                  const newDate = new Date(e.target.value);
-                  const courses = getDayEventsList(newDate);
-                  if (courses.length > 0) {
-                    alert(`Neste dia já tem o curso: ${courses.join(', ')}`);
-                    return;
-                  }
-                  setData({...data, date: newDate});
-                }}
-                className="w-full bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary/50 font-medium text-gray-800 dark:text-white"
-              />
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-1.5">Data Início</label>
+                <input 
+                  type="date" 
+                  value={data.date.toISOString().split('T')[0]} 
+                  onChange={e => {
+                    const newDate = new Date(e.target.value);
+                    const courses = getDayEventsList(newDate);
+                    if (courses.length > 0) {
+                      alert(`Neste dia já tem o curso: ${courses.join(', ')}`);
+                      return;
+                    }
+                    setData({...data, date: newDate});
+                  }}
+                  className="w-full bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary/50 font-medium text-gray-800 dark:text-white"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-1.5">Data Fim</label>
+                <input 
+                  type="date" 
+                  value={data.endDate ? data.endDate.toISOString().split('T')[0] : ''} 
+                  onChange={e => {
+                    if (!e.target.value) {
+                      const newData = {...data};
+                      delete newData.endDate;
+                      setData(newData);
+                      return;
+                    }
+                    const newDate = new Date(e.target.value);
+                    const courses = getDayEventsList(newDate);
+                    if (courses.length > 0) {
+                      alert(`Neste dia já tem o curso: ${courses.join(', ')}`);
+                      return;
+                    }
+                    setData({...data, endDate: newDate});
+                  }}
+                  className="w-full bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary/50 font-medium text-gray-800 dark:text-white"
+                />
+              </div>
             </div>
           </div>
 
