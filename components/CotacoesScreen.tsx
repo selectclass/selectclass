@@ -44,7 +44,14 @@ export const CotacoesScreen: React.FC<CotacoesScreenProps> = ({ api, generateId,
       ]);
 
       if (catsRes) {
-        setCategorias(Object.values(catsRes));
+        const catsArray = Object.values(catsRes) as CotacaoCategoria[];
+        const uniqueCats = catsArray.reduce((acc: CotacaoCategoria[], curr: CotacaoCategoria) => {
+          if (!acc.some(c => c.name.toLowerCase() === curr.name.toLowerCase())) {
+            acc.push(curr);
+          }
+          return acc;
+        }, []);
+        setCategorias(uniqueCats);
       } else {
         // default categories
         const defaultCats = [
@@ -74,6 +81,14 @@ export const CotacoesScreen: React.FC<CotacoesScreenProps> = ({ api, generateId,
 
   const handleSaveCategory = async (name: string) => {
     if (!name.trim()) return;
+    
+    // Check for existing category to prevent duplication
+    const trimmedName = name.trim().toLowerCase();
+    if (categorias.some(c => c.name.toLowerCase() === trimmedName)) {
+      alert('Esta categoria já existe!');
+      return;
+    }
+
     const newCat = { id: generateId(), name: name.trim() };
     await api.put(`v1/data/cotacaoCategorias/${newCat.id}`, newCat);
     setCategorias(prev => [...prev, newCat]);
@@ -393,17 +408,19 @@ const QuoteModal = ({ quote, categorias, onSave, onClose, generateId, getDayEven
 
   // Ensure all categories have at least one item
   useEffect(() => {
-    const missingCats = categorias.filter((c: any) => !data.items.some((i: any) => i.categoryId === c.id));
-    if (missingCats.length > 0) {
-      setData(prev => ({
+    setData(prev => {
+      const missingCats = categorias.filter((c: any) => !prev.items.some((i: any) => i.categoryId === c.id));
+      if (missingCats.length === 0) return prev;
+      
+      return {
         ...prev,
         items: [
           ...prev.items,
           ...missingCats.map((c: any) => ({ id: generateId(), categoryId: c.id, description: '', value: 0 }))
         ]
-      }));
-    }
-  }, [categorias]);
+      };
+    });
+  }, [categorias, generateId]);
 
   const total = data.items.reduce((sum: number, item: any) => sum + (item.value || 0), 0);
 
@@ -484,9 +501,6 @@ const QuoteModal = ({ quote, categorias, onSave, onClose, generateId, getDayEven
                 <div key={cat.id} className="bg-gray-50/50 dark:bg-white/[0.02] p-4 rounded-2xl border border-gray-100 dark:border-gray-800">
                   <div className="flex justify-between items-center mb-3">
                     <h4 className="font-bold text-gray-700 dark:text-gray-200">{cat.name}</h4>
-                    <button onClick={() => handleAddItem(cat.id)} className="text-xs font-semibold text-primary hover:text-primary-dark uppercase tracking-widest flex items-center gap-1">
-                      <PlusIcon className="w-3 h-3" /> Add Item
-                    </button>
                   </div>
                   <div className="space-y-3">
                     {catItems.map((item: any, index: number) => (
@@ -509,11 +523,6 @@ const QuoteModal = ({ quote, categorias, onSave, onClose, generateId, getDayEven
                             className="w-full bg-white dark:bg-surface-dark border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 text-gray-800 dark:text-white font-semibold text-right"
                           />
                         </div>
-                        {catItems.length > 1 && (
-                           <button onClick={() => handleRemoveItem(item.id)} className="p-2 text-gray-400 hover:text-red-500 bg-white dark:bg-surface-dark border border-gray-200 dark:border-gray-700 rounded-xl transition-colors shrink-0">
-                             <TrashIcon className="w-4 h-4" />
-                           </button>
-                        )}
                       </div>
                     ))}
                   </div>
