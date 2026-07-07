@@ -31,6 +31,7 @@ export interface Cotacao {
   id: string;
   title: string;
   date: Date;
+  endDate?: Date;
   items: CotacaoItem[];
   notes?: string;
   createdAt: Date;
