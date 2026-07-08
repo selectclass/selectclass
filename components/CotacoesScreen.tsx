@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Cotacao, CotacaoCategoria, CotacaoItem } from '../types';
-import { PlusIcon, TrashIcon, CalendarIcon, ChevronLeftIcon, XIcon, Edit2Icon, SaveIcon, TagIcon, SearchIcon } from './Icons';
+import { PlusIcon, TrashIcon, CalendarIcon, ChevronLeftIcon, XIcon, Edit2Icon, SaveIcon, TagIcon, SearchIcon, GripVerticalIcon } from './Icons';
 import { formatCurrencyInput, parseCurrency } from '../utils/currency';
 import { Calendar } from './Calendar';
 
@@ -51,14 +51,15 @@ export const CotacoesScreen: React.FC<CotacoesScreenProps> = ({ api, generateId,
           }
           return acc;
         }, []);
+        uniqueCats.sort((a, b) => (a.order || 0) - (b.order || 0));
         setCategorias(uniqueCats);
       } else {
         // default categories
         const defaultCats = [
-          { id: generateId(), name: 'Hotel' },
-          { id: generateId(), name: 'Passagem Aérea' },
-          { id: generateId(), name: 'Alimentação' },
-          { id: generateId(), name: 'Transporte' },
+          { id: generateId(), name: 'Hotel', order: 0 },
+          { id: generateId(), name: 'Passagem Aérea', order: 1 },
+          { id: generateId(), name: 'Alimentação', order: 2 },
+          { id: generateId(), name: 'Transporte', order: 3 },
         ];
         defaultCats.forEach(c => api.put(`v1/data/cotacaoCategorias/${c.id}`, c));
         setCategorias(defaultCats);
@@ -97,6 +98,41 @@ export const CotacoesScreen: React.FC<CotacoesScreenProps> = ({ api, generateId,
   const handleDeleteCategory = async (id: string) => {
     await api.delete(`v1/data/cotacaoCategorias/${id}`);
     setCategorias(prev => prev.filter(c => c.id !== id));
+  };
+
+  const handleEditCategory = async (id: string, newName: string) => {
+    if (!newName.trim()) return;
+    
+    // Check for existing category to prevent duplication (excluding the current one)
+    const trimmedName = newName.trim().toLowerCase();
+    if (categorias.some(c => c.id !== id && c.name.toLowerCase() === trimmedName)) {
+      alert('Esta categoria já existe!');
+      return;
+    }
+
+    setCategorias(prev => prev.map(c => {
+      if (c.id === id) {
+        const updated = { ...c, name: newName.trim() };
+        api.put(`v1/data/cotacaoCategorias/${id}`, updated);
+        return updated;
+      }
+      return c;
+    }));
+  };
+
+  const handleReorderCategory = async (fromIndex: number, toIndex: number) => {
+    setCategorias(prev => {
+      const newArray = [...prev];
+      const [movedItem] = newArray.splice(fromIndex, 1);
+      newArray.splice(toIndex, 0, movedItem);
+      
+      // Update order and save to DB
+      newArray.forEach((cat, index) => {
+        cat.order = index;
+        api.put(`v1/data/cotacaoCategorias/${cat.id}`, cat);
+      });
+      return newArray;
+    });
   };
 
   const handleSaveQuote = async (quote: Cotacao) => {
@@ -142,15 +178,10 @@ export const CotacoesScreen: React.FC<CotacoesScreenProps> = ({ api, generateId,
   };
 
   const openNewQuote = () => {
-    const courses = getDayEventsList(selectedDate);
-    if (courses.length > 0) {
-       alert(`Neste dia já tem o curso: ${courses.join(', ')}`);
-       return;
-    }
     setEditingQuote({
       id: generateId(),
       title: '',
-      date: selectedDate,
+      date: new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate(), 12, 0, 0),
       items: categorias.map(c => ({ id: generateId(), categoryId: c.id, description: '', value: 0 })),
       createdAt: new Date()
     });
@@ -238,17 +269,27 @@ export const CotacoesScreen: React.FC<CotacoesScreenProps> = ({ api, generateId,
              <Calendar 
                selectedDate={selectedDate} 
                onSelectDate={(date) => {
-                 const courses = getDayEventsList(date);
-                 if (courses.length > 0) {
-                   alert(`Neste dia já tem o curso: ${courses.join(', ')}`);
-                   // We don't block the selection, but they can't quote
-                 }
                  setSelectedDate(date);
                }} 
                events={events}
                courseTypes={courseTypes}
                lectureModels={lectureModels}
                showTooltipForEvents={true}
+               hideEventHighlight={true}
+               highlightedDates={cotacoes.reduce((acc: Date[], c) => {
+                 if (c.date) acc.push(new Date(c.date));
+                 if (c.endDate) {
+                   const start = new Date(c.date);
+                   const end = new Date(c.endDate);
+                   let current = new Date(start);
+                   current.setDate(current.getDate() + 1);
+                   while (current <= end) {
+                     acc.push(new Date(current));
+                     current.setDate(current.getDate() + 1);
+                   }
+                 }
+                 return acc;
+               }, [])}
              />
            )}
         </div>
@@ -265,7 +306,7 @@ export const CotacoesScreen: React.FC<CotacoesScreenProps> = ({ api, generateId,
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
             {filteredCotacoes.map(quote => {
-              const total = quote.items.reduce((sum, item) => sum + item.value, 0);
+              const total = quote.items.reduce((sum, item) => item.included !== false ? sum + item.value : sum, 0);
               return (
                 <div key={quote.id} className="bg-white dark:bg-surface-dark p-5 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-800 flex flex-col group relative overflow-hidden transition-all hover:shadow-md">
                   <div className="flex justify-between items-start mb-4">
@@ -287,20 +328,31 @@ export const CotacoesScreen: React.FC<CotacoesScreenProps> = ({ api, generateId,
                     </div>
                   </div>
                   
-                  <div className="space-y-2 mb-4 flex-1">
-                    {quote.items.filter(i => i.value > 0 || i.description).slice(0, 3).map(item => (
-                      <div key={item.id} className="flex justify-between text-sm">
-                        <span className="text-gray-600 dark:text-gray-300 truncate max-w-[60%]">
-                          {categorias.find(c => c.id === item.categoryId)?.name || 'Outro'} {item.description && <span className="text-gray-400">- {item.description}</span>}
-                        </span>
-                        <span className="font-semibold text-gray-800 dark:text-white">
+                  <div className="space-y-3 mb-4 flex-1">
+                    {quote.items.filter(i => i.value > 0 || i.description).map(item => (
+                      <div key={item.id} className={`flex justify-between items-center text-sm ${item.included === false ? 'opacity-50' : ''}`}>
+                        <div className="flex items-center gap-2 max-w-[65%]">
+                          <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                            <input 
+                              type="checkbox" 
+                              className="sr-only peer"
+                              checked={item.included !== false}
+                              onChange={async (e) => {
+                                const newItems = quote.items.map(i => i.id === item.id ? { ...i, included: e.target.checked } : i);
+                                await handleSaveQuote({ ...quote, items: newItems });
+                              }}
+                            />
+                            <div className="w-7 h-4 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary/50 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all dark:border-gray-600 peer-checked:bg-primary"></div>
+                          </label>
+                          <span className="text-gray-600 dark:text-gray-300 truncate">
+                            {categorias.find(c => c.id === item.categoryId)?.name || 'Outro'} {item.description && <span className="text-gray-400">- {item.description}</span>}
+                          </span>
+                        </div>
+                        <span className={`font-semibold text-gray-800 dark:text-white ${item.included === false ? 'line-through' : ''}`}>
                           {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.value)}
                         </span>
                       </div>
                     ))}
-                    {quote.items.filter(i => i.value > 0 || i.description).length > 3 && (
-                      <div className="text-xs text-gray-400 text-center pt-1">+ {quote.items.filter(i => i.value > 0 || i.description).length - 3} itens</div>
-                    )}
                   </div>
                   
                   <div className="pt-4 border-t border-gray-100 dark:border-gray-800 flex justify-between items-center mt-auto">
@@ -320,7 +372,9 @@ export const CotacoesScreen: React.FC<CotacoesScreenProps> = ({ api, generateId,
         <CategoryModal 
           categorias={categorias} 
           onSave={handleSaveCategory} 
+          onEdit={handleEditCategory}
           onDelete={handleDeleteCategory} 
+          onReorder={handleReorderCategory}
           onClose={() => setIsCategoryModalOpen(false)} 
         />
       )}
@@ -339,8 +393,11 @@ export const CotacoesScreen: React.FC<CotacoesScreenProps> = ({ api, generateId,
   );
 };
 
-const CategoryModal = ({ categorias, onSave, onDelete, onClose }: any) => {
+const CategoryModal = ({ categorias, onSave, onDelete, onEdit, onReorder, onClose }: any) => {
   const [newName, setNewName] = useState('');
+  const [draggedItem, setDraggedItem] = useState<number | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editName, setEditName] = useState('');
 
   return (
     <div className="fixed inset-0 bg-black/60 z-[100] backdrop-blur-sm flex items-center justify-center p-4">
@@ -368,12 +425,61 @@ const CategoryModal = ({ categorias, onSave, onDelete, onClose }: any) => {
         </div>
 
         <div className="space-y-2 max-h-64 overflow-y-auto pr-2 custom-scrollbar">
-          {categorias.map((c: any) => (
-            <div key={c.id} className="flex justify-between items-center p-3 bg-gray-50 dark:bg-white/5 rounded-xl border border-gray-100 dark:border-gray-800">
-              <span className="text-gray-800 dark:text-white font-medium">{c.name}</span>
-              <button onClick={() => onDelete(c.id)} className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-colors">
-                <TrashIcon className="w-4 h-4" />
-              </button>
+          {categorias.map((c: any, index: number) => (
+            <div 
+              key={c.id} 
+              draggable={editingId !== c.id}
+              onDragStart={() => setDraggedItem(index)}
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={(e) => {
+                e.preventDefault();
+                if (draggedItem !== null && draggedItem !== index) {
+                  onReorder(draggedItem, index);
+                }
+                setDraggedItem(null);
+              }}
+              className="flex justify-between items-center p-3 bg-gray-50 dark:bg-white/5 rounded-xl border border-gray-100 dark:border-gray-800 cursor-move hover:border-primary/30 transition-colors"
+            >
+              <div className="flex items-center gap-2 flex-1 min-w-0">
+                <GripVerticalIcon className="w-4 h-4 text-gray-400 shrink-0" />
+                {editingId === c.id ? (
+                  <input
+                    type="text"
+                    value={editName}
+                    autoFocus
+                    onChange={(e) => setEditName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        onEdit(c.id, editName);
+                        setEditingId(null);
+                      } else if (e.key === 'Escape') {
+                        setEditingId(null);
+                      }
+                    }}
+                    onBlur={() => {
+                      onEdit(c.id, editName);
+                      setEditingId(null);
+                    }}
+                    className="flex-1 w-full min-w-0 bg-white dark:bg-surface-dark border border-gray-200 dark:border-gray-700 rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 text-gray-800 dark:text-white"
+                  />
+                ) : (
+                  <span className="text-gray-800 dark:text-white font-medium truncate">{c.name}</span>
+                )}
+              </div>
+              <div className="flex gap-1 shrink-0 ml-2">
+                {editingId === c.id ? (
+                  <button onMouseDown={(e) => e.stopPropagation()} onClick={(e) => { e.stopPropagation(); onEdit(c.id, editName); setEditingId(null); }} className="p-1.5 text-primary hover:bg-primary/10 rounded-lg transition-colors cursor-pointer">
+                    <SaveIcon className="w-4 h-4" />
+                  </button>
+                ) : (
+                  <button onMouseDown={(e) => e.stopPropagation()} onClick={(e) => { e.stopPropagation(); setEditingId(c.id); setEditName(c.name); }} className="p-1.5 text-gray-400 hover:text-primary hover:bg-primary/5 dark:hover:bg-primary/10 rounded-lg transition-colors cursor-pointer">
+                    <Edit2Icon className="w-4 h-4" />
+                  </button>
+                )}
+                <button onMouseDown={(e) => e.stopPropagation()} onClick={(e) => { e.stopPropagation(); onDelete(c.id); }} className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-colors cursor-pointer">
+                  <TrashIcon className="w-4 h-4" />
+                </button>
+              </div>
             </div>
           ))}
         </div>
@@ -422,7 +528,7 @@ const QuoteModal = ({ quote, categorias, onSave, onClose, generateId, getDayEven
     });
   }, [categorias, generateId]);
 
-  const total = data.items.reduce((sum: number, item: any) => sum + (item.value || 0), 0);
+  const total = data.items.reduce((sum: number, item: any) => item.included !== false ? sum + (item.value || 0) : sum, 0);
 
   return (
     <div className="fixed inset-0 bg-black/60 z-[100] backdrop-blur-sm flex items-center justify-center p-4 py-8">
@@ -453,14 +559,10 @@ const QuoteModal = ({ quote, categorias, onSave, onClose, generateId, getDayEven
                 <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-1.5">Data Início</label>
                 <input 
                   type="date" 
-                  value={data.date.toISOString().split('T')[0]} 
+                  value={(() => { const d = new Date(data.date); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().split('T')[0]; })()} 
                   onChange={e => {
-                    const newDate = new Date(e.target.value);
-                    const courses = getDayEventsList(newDate);
-                    if (courses.length > 0) {
-                      alert(`Neste dia já tem o curso: ${courses.join(', ')}`);
-                      return;
-                    }
+                    const [y, m, d] = e.target.value.split('-').map(Number);
+                    const newDate = new Date(y, m - 1, d, 12, 0, 0);
                     setData({...data, date: newDate});
                   }}
                   className="w-full bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary/50 font-medium text-gray-800 dark:text-white"
@@ -470,7 +572,7 @@ const QuoteModal = ({ quote, categorias, onSave, onClose, generateId, getDayEven
                 <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-1.5">Data Fim</label>
                 <input 
                   type="date" 
-                  value={data.endDate ? data.endDate.toISOString().split('T')[0] : ''} 
+                  value={data.endDate ? (() => { const d = new Date(data.endDate); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().split('T')[0]; })() : ''} 
                   onChange={e => {
                     if (!e.target.value) {
                       const newData = {...data};
@@ -478,12 +580,8 @@ const QuoteModal = ({ quote, categorias, onSave, onClose, generateId, getDayEven
                       setData(newData);
                       return;
                     }
-                    const newDate = new Date(e.target.value);
-                    const courses = getDayEventsList(newDate);
-                    if (courses.length > 0) {
-                      alert(`Neste dia já tem o curso: ${courses.join(', ')}`);
-                      return;
-                    }
+                    const [y, m, d] = e.target.value.split('-').map(Number);
+                    const newDate = new Date(y, m - 1, d, 12, 0, 0);
                     setData({...data, endDate: newDate});
                   }}
                   className="w-full bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary/50 font-medium text-gray-800 dark:text-white"
@@ -505,13 +603,24 @@ const QuoteModal = ({ quote, categorias, onSave, onClose, generateId, getDayEven
                   <div className="space-y-3">
                     {catItems.map((item: any, index: number) => (
                       <div key={item.id} className="flex gap-2 items-start relative">
+                        <div className="pt-2">
+                          <label className="relative inline-flex items-center cursor-pointer">
+                            <input 
+                              type="checkbox" 
+                              className="sr-only peer"
+                              checked={item.included !== false}
+                              onChange={(e) => handleItemChange(item.id, 'included', e.target.checked)}
+                            />
+                            <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary/50 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all dark:border-gray-600 peer-checked:bg-primary"></div>
+                          </label>
+                        </div>
                         <div className="flex-1">
                           <input 
                             type="text" 
                             value={item.description} 
                             onChange={e => handleItemChange(item.id, 'description', e.target.value)}
                             placeholder="Descrição (opcional)"
-                            className="w-full bg-white dark:bg-surface-dark border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 text-gray-800 dark:text-white mb-2"
+                            className={`w-full bg-white dark:bg-surface-dark border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 text-gray-800 dark:text-white mb-2 ${item.included === false ? 'opacity-50' : ''}`}
                           />
                         </div>
                         <div className="w-32">
@@ -520,7 +629,8 @@ const QuoteModal = ({ quote, categorias, onSave, onClose, generateId, getDayEven
                             value={formatCurrencyInput(item.value)}
                             onChange={e => handleItemChange(item.id, 'value', parseCurrency(formatCurrencyInput(e.target.value)))}
                             placeholder="R$ 0,00"
-                            className="w-full bg-white dark:bg-surface-dark border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 text-gray-800 dark:text-white font-semibold text-right"
+                            className={`w-full bg-white dark:bg-surface-dark border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 text-gray-800 dark:text-white font-semibold text-right ${item.included === false ? 'opacity-50 line-through text-gray-400' : ''}`}
+                            disabled={item.included === false}
                           />
                         </div>
                       </div>
