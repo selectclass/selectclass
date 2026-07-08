@@ -11,6 +11,8 @@ interface CalendarProps {
   courseTypes?: CourseType[];
   lectureModels?: LectureModel[];
   showTooltipForEvents?: boolean;
+  highlightedDates?: Date[];
+  hideEventHighlight?: boolean;
 }
 
 export const Calendar: React.FC<CalendarProps> = ({ 
@@ -21,7 +23,9 @@ export const Calendar: React.FC<CalendarProps> = ({
   events = [],
   courseTypes = [],
   lectureModels = [],
-  showTooltipForEvents = false
+  showTooltipForEvents = false,
+  highlightedDates = [],
+  hideEventHighlight = false
 }) => {
   const [currentMonth, setCurrentMonth] = useState(new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1));
 
@@ -144,14 +148,15 @@ export const Calendar: React.FC<CalendarProps> = ({
       const eventType = getDayEventType(date);
       const isPast = date < today;
       const blocked = (isDateBlocked ? isDateBlocked(date) : false) || (isPast && !eventType);
+      const hasHighlight = highlightedDates.some(hd => hd.toDateString() === date.toDateString());
 
       let dayStyle = '';
       if (blocked) {
         dayStyle = 'text-gray-300 dark:text-gray-600 cursor-not-allowed opacity-50';
-      } else if (eventType === 'palestra' || eventType === 'curso') {
+      } else if (!hideEventHighlight && (eventType === 'palestra' || eventType === 'curso')) {
         dayStyle = `bg-primary text-white font-black shadow-md ${isSelected ? 'ring-4 ring-primary/30 dark:ring-primary/50 scale-110' : ''}`;
-      } else if (isSelected) {
-        dayStyle = 'bg-primary text-white shadow-lg shadow-primary/30 scale-105 font-semibold';
+      } else if (isSelected || hasHighlight) {
+        dayStyle = `bg-primary text-white shadow-lg shadow-primary/30 font-semibold ${isSelected ? 'scale-105' : ''}`;
       } else {
         dayStyle = 'text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-white/10 font-medium';
       }
