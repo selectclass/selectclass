@@ -18,6 +18,7 @@ export enum AppView {
 export interface CotacaoCategoria {
   id: string;
   name: string;
+  order?: number;
 }
 
 export interface CotacaoItem {
@@ -25,6 +26,7 @@ export interface CotacaoItem {
   categoryId: string;
   description: string;
   value: number;
+  included?: boolean;
 }
 
 export interface Cotacao {
