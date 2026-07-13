@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ChevronLeftIcon, ChevronRightIcon } from './Icons';
-import { CalendarEvent, CourseType, LectureModel } from '../types';
+import { CalendarEvent, CourseType, LectureModel, Cotacao } from '../types';
 
 interface CalendarProps {
   selectedDate: Date;
@@ -13,6 +13,8 @@ interface CalendarProps {
   showTooltipForEvents?: boolean;
   highlightedDates?: Date[];
   hideEventHighlight?: boolean;
+  cotacoes?: Cotacao[];
+  onCotacaoClick?: (id: string) => void;
 }
 
 export const Calendar: React.FC<CalendarProps> = ({ 
@@ -25,7 +27,9 @@ export const Calendar: React.FC<CalendarProps> = ({
   lectureModels = [],
   showTooltipForEvents = false,
   highlightedDates = [],
-  hideEventHighlight = false
+  hideEventHighlight = false,
+  cotacoes = [],
+  onCotacaoClick
 }) => {
   const [currentMonth, setCurrentMonth] = useState(new Date(selectedDate.getFullYear(), selectedDate.getMonth(), 1));
 
@@ -67,8 +71,8 @@ export const Calendar: React.FC<CalendarProps> = ({
            lectureModels.some(m => m.name === evt.title);
   };
 
-  const getDayEventType = (dayDate: Date): 'palestra' | 'curso' | null => {
-    let type: 'palestra' | 'curso' | null = null;
+  const getDayEventType = (dayDate: Date): 'palestra' | 'curso' | 'cotacao' | null => {
+    let type: 'palestra' | 'curso' | 'cotacao' | null = null;
     const dayDateString = dayDate.toDateString();
     
     events.forEach(e => {
@@ -100,12 +104,12 @@ export const Calendar: React.FC<CalendarProps> = ({
        }
     });
 
-    return type;
+    cotacoes.forEach(c => { if (!c.date) return; const cDate = new Date(c.date); let isWithinRange = false; if (c.endDate) { const end = new Date(c.endDate); let current = new Date(cDate); while (current <= end) { if (current.toDateString() === dayDateString) { isWithinRange = true; break; } current.setDate(current.getDate() + 1); } } else { if (cDate.toDateString() === dayDateString) { isWithinRange = true; } } if (isWithinRange && !type) { type = 'cotacao'; } }); return type;
   };
 
-  const getDayEventsList = (dayDate: Date): string[] => {
+  const getDayEventsList = (dayDate: Date): { id: string, name: string, isCotacao?: boolean }[] => {
     const dayDateString = dayDate.toDateString();
-    const eventNames: string[] = [];
+    const eventNames: { id: string, name: string, isCotacao?: boolean }[] = [];
     events.forEach(e => {
        if (!e.date) return;
        const eDate = new Date(e.date);
@@ -118,14 +122,14 @@ export const Calendar: React.FC<CalendarProps> = ({
          const currentRangeDay = new Date(eDate);
          currentRangeDay.setDate(eDate.getDate() + j);
          if (currentRangeDay.toDateString() === dayDateString) {
-           if (!eventNames.includes(e.title)) {
-             eventNames.push(e.title);
+           if (!eventNames.some(ev => ev.name === e.title)) {
+             eventNames.push({ id: e.id, name: e.title });
            }
            break;
          }
        }
     });
-    return eventNames;
+    cotacoes.forEach(c => { if (!c.date) return; const cDate = new Date(c.date); let isWithinRange = false; if (c.endDate) { const end = new Date(c.endDate); let current = new Date(cDate); while (current <= end) { if (current.toDateString() === dayDateString) { isWithinRange = true; break; } current.setDate(current.getDate() + 1); } } else { if (cDate.toDateString() === dayDateString) { isWithinRange = true; } } if (isWithinRange) { const name = `Cotação: ${c.title}`; if (!eventNames.some(ev => ev.name === name)) { eventNames.push({ id: c.id, name, isCotacao: true }); } } }); return eventNames;
   };
 
   const [activeTooltipDate, setActiveTooltipDate] = useState<string | null>(null);
@@ -153,7 +157,7 @@ export const Calendar: React.FC<CalendarProps> = ({
       let dayStyle = '';
       if (blocked) {
         dayStyle = 'text-gray-300 dark:text-gray-600 cursor-not-allowed opacity-50';
-      } else if (!hideEventHighlight && (eventType === 'palestra' || eventType === 'curso')) {
+      } else if (!hideEventHighlight && (eventType === 'palestra' || eventType === 'curso' || eventType === 'cotacao')) {
         dayStyle = `bg-primary text-white font-black shadow-md ${isSelected ? 'ring-4 ring-primary/30 dark:ring-primary/50 scale-110' : ''}`;
       } else if (isSelected || hasHighlight) {
         dayStyle = `bg-primary text-white shadow-lg shadow-primary/30 font-semibold ${isSelected ? 'scale-105' : ''}`;
@@ -167,7 +171,7 @@ export const Calendar: React.FC<CalendarProps> = ({
         <div key={i} className="flex flex-col items-center relative">
           {showTooltipForEvents && activeTooltipDate === date.toDateString() && dayEventNames.length > 0 && (
             <div className="absolute bottom-full mb-1 z-50 bg-[#1A4373] text-white text-[10px] font-bold rounded-lg px-2.5 py-1.5 whitespace-nowrap shadow-xl animate-fade-in">
-               {dayEventNames.map((name, idx) => <div key={idx}>{name}</div>)}
+               {dayEventNames.map((evt, idx) => <div key={idx} className={evt.isCotacao ? "cursor-pointer hover:text-sky-300" : ""} onClick={(e) => { e.stopPropagation(); if (evt.isCotacao && onCotacaoClick) onCotacaoClick(evt.id); }}>{evt.name}</div>)}
                <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-[#1A4373]" />
             </div>
           )}
