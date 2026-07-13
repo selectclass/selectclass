@@ -36,6 +36,8 @@ export interface Cotacao {
   endDate?: Date;
   items: CotacaoItem[];
   notes?: string;
+  targetAttendees?: number;
+  ticketPrice?: number;
   createdAt: Date;
 }
 
