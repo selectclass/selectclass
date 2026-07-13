@@ -67,6 +67,7 @@ function App() {
 
   const [students, setStudents] = useState<Student[]>([]);
   const [allEvents, setAllEvents] = useState<CalendarEvent[]>([]);
+  const [cotacoes, setCotacoes] = useState<any[]>([]);
   const [courseTypes, setCourseTypes] = useState<CourseType[]>([]);
   const [lectureModels, setLectureModels] = useState<LectureModel[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
@@ -111,13 +112,14 @@ function App() {
 
   const refreshData = useCallback(async () => {
     if (!isAuthenticated) return;
-    const [eventsData, coursesData, studentsData, expensesData, palestrasData, lectureModelsData] = await Promise.all([
+    const [eventsData, coursesData, studentsData, expensesData, palestrasData, lectureModelsData, cotacoesData] = await Promise.all([
         api.get('v1/appointments'),
         api.get('v1/courses'),
         api.get('v1/students'),
         api.get('v1/expenses'),
         api.get('palestras_v1'),
-        api.get('v1/lecture_models')
+        api.get('v1/lecture_models'),
+        api.get('v1/data/cotacoes')
     ]);
     const normalizeEvents = (data: any) => data ? Object.values(data).map((e: any) => ({ 
         ...e, 
@@ -135,6 +137,7 @@ function App() {
     setStudents(studentsData ? Object.values(studentsData).map((s: any) => ({ ...s, createdAt: new Date(s.createdAt) })) : []);
     setExpenses(expensesData ? Object.values(expensesData).map((e: any) => ({ ...e, date: new Date(e.date) })) : []);
     
+    setCotacoes(cotacoesData ? Object.values(cotacoesData).map((c: any) => ({ ...c, date: c.date ? new Date(c.date) : undefined, endDate: c.endDate ? new Date(c.endDate) : undefined })) : []);
     setIsInitialLoading(false);
   }, [isAuthenticated]);
 
@@ -174,6 +177,7 @@ function App() {
   const [selectedEventForPayment, setSelectedEventForPayment] = useState<CalendarEvent | null>(null);
   const [selectedInstallment, setSelectedInstallment] = useState<number | undefined>(undefined);
   const [currentView, setCurrentView] = useState<AppView>(AppView.HOME);
+  const [targetCotacaoId, setTargetCotacaoId] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [dashboardDate, setDashboardDate] = useState(new Date());
   const [showDashboardRevenue, setShowDashboardRevenue] = useState(false);
@@ -830,7 +834,8 @@ function App() {
                     <span className="text-[9px] font-black tracking-widest uppercase">TODOS AGENDAMENTOS</span>
                 </button>
             </div>
-            <Calendar 
+            <Calendar cotacoes={cotacoes} showTooltipForEvents={true}
+              onCotacaoClick={(id) => { setTargetCotacaoId(id); setCurrentView(AppView.COTACOES); }} 
               selectedDate={selectedDate} 
               onSelectDate={(date) => {
                 setSelectedDate(date);
@@ -1103,17 +1108,17 @@ function App() {
           </>
         );
       }
-      case AppView.ALL_EVENTS: return <AllEventsList events={allEvents} courseTypes={courseTypes} lectureModels={lectureModels} onEventClick={(e) => { if(e.date) setSelectedDate(new Date(e.date)); setCurrentView(AppView.HOME); }} onClose={() => setCurrentView(AppView.HOME)} />;
-      case AppView.LECTURE_MODELS: return <LectureModelManager models={lectureModels} onAdd={(m) => api.put('v1/lecture_models/' + m.id, m).then(refreshData)} onRemove={(id) => api.delete('v1/lecture_models/' + id).then(refreshData)} onSaveOrder={handleSaveLectureOrder} onClose={() => setCurrentView(AppView.HOME)} />;
-      case AppView.STUDENTS: return <StudentsList students={students} onEdit={(s) => { setEditingStudent(s); setIsStudentModalOpen(true); }} onDelete={(id) => setDeleteStudentData({ isOpen: true, studentId: id })} onClose={() => setCurrentView(AppView.HOME)} />;
-      case AppView.HISTORY: return <HistoryScreen events={allEvents} courseTypes={courseTypes} onClose={() => setCurrentView(AppView.HOME)} />;
-      case AppView.FINANCIAL: return <FinancialScreen events={allEvents} annualGoal={annualGoal} onUpdateGoal={setAnnualGoal} expenses={expenses} courseTypes={courseTypes} lectureModels={lectureModels} onClose={() => setCurrentView(AppView.HOME)} />;
-      case AppView.ADD_EVENTS: return <CourseManager courseTypes={courseTypes} onAddCourse={(c) => api.put('v1/courses/' + c.id, c).then(refreshData)} onUpdateCourse={(c) => api.put('v1/courses/' + c.id, c).then(refreshData)} onRemoveCourse={(id) => api.delete('v1/courses/' + id).then(refreshData)} onSaveOrder={handleSaveCourseOrder} onClose={() => setCurrentView(AppView.HOME)} />;
-      case AppView.MATERIALS: return <MaterialsScreen courseTypes={courseTypes} onUpdateCourse={(c) => api.put('v1/courses/' + c.id, c).then(refreshData)} onClose={() => setCurrentView(AppView.HOME)} />;
-      case AppView.ANALYTICS: return <AnalyticsScreen events={allEvents} courseTypes={courseTypes} lectureModels={lectureModels} onClose={() => setCurrentView(AppView.HOME)} />;
-      case AppView.EXPENSES: return <ExpensesScreen expenses={expenses} events={allEvents} courseTypes={courseTypes} lectureModels={lectureModels} onAddExpense={handleAddExpense} onDeleteExpense={handleDeleteExpense} onClose={() => setCurrentView(AppView.HOME)} />;
-      case AppView.COTACOES: return <CotacoesScreen api={api} generateId={generateId} onClose={() => setCurrentView(AppView.HOME)} events={allEvents} courseTypes={courseTypes} lectureModels={lectureModels} />;
-      case AppView.SETTINGS: return <SettingsScreen isDarkMode={isDarkMode} onToggleTheme={() => setIsDarkMode(!isDarkMode)} primaryColor={primaryColor} onUpdateColor={setPrimaryColor} instructorName={instructorName} onUpdateInstructorName={setInstructorName} onClearAllData={() => {}} currentUsername={credentials.user} onUpdateCredentials={handleUpdateCredentials} onClose={() => setCurrentView(AppView.HOME)} />;
+      case AppView.ALL_EVENTS: return <AllEventsList events={allEvents} courseTypes={courseTypes} lectureModels={lectureModels} onEventClick={(e) => { if(e.date) setSelectedDate(new Date(e.date)); setCurrentView(AppView.HOME); }} onClose={() => { setCurrentView(AppView.HOME); refreshData(); }} />;
+      case AppView.LECTURE_MODELS: return <LectureModelManager models={lectureModels} onAdd={(m) => api.put('v1/lecture_models/' + m.id, m).then(refreshData)} onRemove={(id) => api.delete('v1/lecture_models/' + id).then(refreshData)} onSaveOrder={handleSaveLectureOrder} onClose={() => { setCurrentView(AppView.HOME); refreshData(); }} />;
+      case AppView.STUDENTS: return <StudentsList students={students} onEdit={(s) => { setEditingStudent(s); setIsStudentModalOpen(true); }} onDelete={(id) => setDeleteStudentData({ isOpen: true, studentId: id })} onClose={() => { setCurrentView(AppView.HOME); refreshData(); }} />;
+      case AppView.HISTORY: return <HistoryScreen events={allEvents} courseTypes={courseTypes} onClose={() => { setCurrentView(AppView.HOME); refreshData(); }} />;
+      case AppView.FINANCIAL: return <FinancialScreen events={allEvents} annualGoal={annualGoal} onUpdateGoal={setAnnualGoal} expenses={expenses} courseTypes={courseTypes} lectureModels={lectureModels} onClose={() => { setCurrentView(AppView.HOME); refreshData(); }} />;
+      case AppView.ADD_EVENTS: return <CourseManager courseTypes={courseTypes} onAddCourse={(c) => api.put('v1/courses/' + c.id, c).then(refreshData)} onUpdateCourse={(c) => api.put('v1/courses/' + c.id, c).then(refreshData)} onRemoveCourse={(id) => api.delete('v1/courses/' + id).then(refreshData)} onSaveOrder={handleSaveCourseOrder} onClose={() => { setCurrentView(AppView.HOME); refreshData(); }} />;
+      case AppView.MATERIALS: return <MaterialsScreen courseTypes={courseTypes} onUpdateCourse={(c) => api.put('v1/courses/' + c.id, c).then(refreshData)} onClose={() => { setCurrentView(AppView.HOME); refreshData(); }} />;
+      case AppView.ANALYTICS: return <AnalyticsScreen events={allEvents} courseTypes={courseTypes} lectureModels={lectureModels} onClose={() => { setCurrentView(AppView.HOME); refreshData(); }} />;
+      case AppView.EXPENSES: return <ExpensesScreen expenses={expenses} events={allEvents} courseTypes={courseTypes} lectureModels={lectureModels} onAddExpense={handleAddExpense} onDeleteExpense={handleDeleteExpense} onClose={() => { setCurrentView(AppView.HOME); refreshData(); }} />;
+      case AppView.COTACOES: return <CotacoesScreen api={api} generateId={generateId} onClose={() => { setCurrentView(AppView.HOME); refreshData(); }} events={allEvents} courseTypes={courseTypes} lectureModels={lectureModels} targetCotacaoId={targetCotacaoId} onClearTargetCotacao={() => setTargetCotacaoId(null)} />;
+      case AppView.SETTINGS: return <SettingsScreen isDarkMode={isDarkMode} onToggleTheme={() => setIsDarkMode(!isDarkMode)} primaryColor={primaryColor} onUpdateColor={setPrimaryColor} instructorName={instructorName} onUpdateInstructorName={setInstructorName} onClearAllData={() => {}} currentUsername={credentials.user} onUpdateCredentials={handleUpdateCredentials} onClose={() => { setCurrentView(AppView.HOME); refreshData(); }} />;
       default: return null;
     }
   };
