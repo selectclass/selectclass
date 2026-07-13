@@ -5,6 +5,8 @@ import { formatCurrencyInput, parseCurrency } from '../utils/currency';
 import { Calendar } from './Calendar';
 
 interface CotacoesScreenProps {
+  targetCotacaoId?: string | null;
+  onClearTargetCotacao?: () => void;
   api: {
     get: (path: string) => Promise<any>;
     put: (path: string, data: any) => Promise<void>;
@@ -17,19 +19,40 @@ interface CotacoesScreenProps {
   lectureModels?: any[];
 }
 
-export const CotacoesScreen: React.FC<CotacoesScreenProps> = ({ api, generateId, onClose, events = [], courseTypes = [], lectureModels = [] }) => {
+export const CotacoesScreen: React.FC<CotacoesScreenProps> = ({ 
+  api, 
+  generateId, 
+  onClose, 
+  events = [], 
+  courseTypes = [], 
+  lectureModels = [],
+  targetCotacaoId,
+  onClearTargetCotacao
+}) => {
   const [cotacoes, setCotacoes] = useState<Cotacao[]>([]);
   const [categorias, setCategorias] = useState<CotacaoCategoria[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
   const [isQuoteModalOpen, setIsQuoteModalOpen] = useState(false);
+  const [quoteToDelete, setQuoteToDelete] = useState<string | null>(null);
   
   const [editingQuote, setEditingQuote] = useState<Cotacao | null>(null);
   
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [showAllDates, setShowAllDates] = useState(false);
+
+  useEffect(() => {
+    if (targetCotacaoId && cotacoes.length > 0) {
+      const target = cotacoes.find(c => c.id === targetCotacaoId);
+      if (target) {
+        setEditingQuote(target);
+        setIsQuoteModalOpen(true);
+        if (onClearTargetCotacao) onClearTargetCotacao();
+      }
+    }
+  }, [targetCotacaoId, cotacoes, onClearTargetCotacao]);
 
   useEffect(() => {
     fetchData();
@@ -146,10 +169,9 @@ export const CotacoesScreen: React.FC<CotacoesScreenProps> = ({ api, generateId,
   };
 
   const handleDeleteQuote = async (id: string) => {
-    if (confirm('Tem certeza que deseja excluir esta cotação?')) {
-      await api.delete(`v1/data/cotacoes/${id}`);
-      fetchData();
-    }
+    await api.delete(`v1/data/cotacoes/${id}`);
+    fetchData();
+    setQuoteToDelete(null);
   };
 
   const getDayEventsList = (dayDate: Date): string[] => {
@@ -322,7 +344,7 @@ export const CotacoesScreen: React.FC<CotacoesScreenProps> = ({ api, generateId,
                       <button onClick={() => { setEditingQuote(quote); setIsQuoteModalOpen(true); }} className="p-2 text-gray-400 hover:text-primary transition-colors bg-gray-50 dark:bg-white/5 rounded-xl">
                         <Edit2Icon className="w-4 h-4" />
                       </button>
-                      <button onClick={() => handleDeleteQuote(quote.id)} className="p-2 text-gray-400 hover:text-red-500 transition-colors bg-gray-50 dark:bg-white/5 rounded-xl">
+                      <button onClick={() => setQuoteToDelete(quote.id)} className="p-2 text-gray-400 hover:text-red-500 transition-colors bg-gray-50 dark:bg-white/5 rounded-xl">
                         <TrashIcon className="w-4 h-4" />
                       </button>
                     </div>
@@ -355,11 +377,34 @@ export const CotacoesScreen: React.FC<CotacoesScreenProps> = ({ api, generateId,
                     ))}
                   </div>
                   
-                  <div className="pt-4 border-t border-gray-100 dark:border-gray-800 flex justify-between items-center mt-auto">
-                    <span className="text-xs font-bold uppercase tracking-widest text-gray-500">Total Previsto</span>
-                    <span className="text-xl font-black text-[#1A4373] dark:text-sky-400">
-                      {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(total)}
-                    </span>
+                  {quote.notes && (
+                    <div className="pt-4 mt-2 border-t border-gray-100 dark:border-gray-800">
+                      <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1.5">Observações</p>
+                      <p className="text-sm text-gray-600 dark:text-gray-300 whitespace-pre-wrap">{quote.notes}</p>
+                    </div>
+                  )}
+
+                  <div className="pt-4 border-t border-gray-100 dark:border-gray-800 flex items-center gap-3 md:gap-4 mt-auto">
+                    <div>
+                      <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest leading-none mb-0.5">Custo Total</p>
+                      <p className="text-sm md:text-base font-black text-[#1A4373] dark:text-sky-400 leading-none">
+                        {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(total)}
+                      </p>
+                    </div>
+                    {(quote.targetAttendees && quote.ticketPrice) ? (
+                      <>
+                        <div className="h-6 w-px bg-gray-200 dark:bg-gray-700" />
+                        <div className="flex flex-col items-start">
+                          <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest leading-none mb-0.5">Lucro Estimado</p>
+                          <p className="text-sm md:text-base font-black text-green-600 dark:text-green-400 leading-none flex items-center gap-1.5">
+                            {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format((quote.targetAttendees * quote.ticketPrice) - total)}
+                            <span className="text-[8px] text-gray-400 font-medium normal-case tracking-normal">
+                              ({quote.targetAttendees}x {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(quote.ticketPrice)})
+                            </span>
+                          </p>
+                        </div>
+                      </>
+                    ) : null}
                   </div>
                 </div>
               );
@@ -388,6 +433,34 @@ export const CotacoesScreen: React.FC<CotacoesScreenProps> = ({ api, generateId,
           generateId={generateId}
           getDayEventsList={getDayEventsList}
         />
+      )}
+
+      {quoteToDelete && (
+        <div className="fixed inset-0 bg-black/60 z-[200] backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-surface-dark w-full max-w-sm rounded-3xl p-6 shadow-2xl relative animate-scale-in text-center">
+            <div className="w-16 h-16 bg-red-100 dark:bg-red-500/20 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4">
+              <TrashIcon className="w-8 h-8" />
+            </div>
+            <h3 className="text-xl font-black text-gray-800 dark:text-white uppercase tracking-tighter mb-2">Excluir Cotação</h3>
+            <p className="text-gray-500 dark:text-gray-400 text-sm mb-6">
+              Tem certeza que deseja excluir esta cotação? Esta ação não pode ser desfeita.
+            </p>
+            <div className="flex gap-3">
+              <button 
+                onClick={() => setQuoteToDelete(null)}
+                className="flex-1 bg-gray-100 dark:bg-white/5 text-gray-600 dark:text-gray-300 font-bold uppercase tracking-widest text-xs py-3 rounded-xl hover:bg-gray-200 dark:hover:bg-white/10 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button 
+                onClick={() => handleDeleteQuote(quoteToDelete)}
+                className="flex-1 bg-red-500 text-white font-bold uppercase tracking-widest text-xs py-3 rounded-xl hover:bg-red-600 transition-colors shadow-lg shadow-red-500/30"
+              >
+                Excluir
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
@@ -590,6 +663,30 @@ const QuoteModal = ({ quote, categorias, onSave, onClose, generateId, getDayEven
             </div>
           </div>
 
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-1.5">Meta de Participantes (Meninas)</label>
+              <input 
+                type="number" 
+                value={data.targetAttendees || ''} 
+                onChange={e => setData({...data, targetAttendees: e.target.value ? parseInt(e.target.value) : undefined})}
+                className="w-full bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary/50 font-medium text-gray-800 dark:text-white"
+                placeholder="Ex: 20"
+                min="0"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-bold text-gray-500 uppercase tracking-widest mb-1.5">Valor do Ingresso</label>
+              <input 
+                type="text" 
+                value={data.ticketPrice ? formatCurrencyInput(data.ticketPrice) : ''} 
+                onChange={e => setData({...data, ticketPrice: e.target.value ? parseCurrency(formatCurrencyInput(e.target.value)) : undefined})}
+                className="w-full bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-primary/50 font-medium text-gray-800 dark:text-white"
+                placeholder="R$ 0,00"
+              />
+            </div>
+          </div>
+
           <div className="space-y-6">
             <h3 className="text-sm font-black text-gray-800 dark:text-white uppercase tracking-widest border-b border-gray-100 dark:border-gray-800 pb-2">Itens da Cotação</h3>
             
@@ -653,17 +750,33 @@ const QuoteModal = ({ quote, categorias, onSave, onClose, generateId, getDayEven
           </div>
         </div>
 
-        <div className="p-6 border-t border-gray-100 dark:border-gray-800 shrink-0 flex flex-col md:flex-row justify-between items-center gap-4 bg-gray-50/50 dark:bg-white/[0.02] rounded-b-3xl">
-          <div className="text-center md:text-left">
-            <p className="text-xs font-bold text-gray-500 uppercase tracking-widest">Total da Cotação</p>
-            <p className="text-2xl font-black text-[#1A4373] dark:text-sky-400">
-              {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(total)}
-            </p>
+        <div className="p-4 px-5 border-t border-gray-100 dark:border-gray-800 shrink-0 flex flex-col gap-4 bg-gray-50/50 dark:bg-white/[0.02] rounded-b-3xl">
+          <div className="flex items-center justify-center w-full gap-3 md:gap-4 text-left">
+            <div>
+              <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest leading-none mb-0.5">Custo Total</p>
+              <p className="text-sm md:text-base font-black text-[#1A4373] dark:text-sky-400 leading-none">
+                {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(total)}
+              </p>
+            </div>
+            {(data.targetAttendees && data.ticketPrice) ? (
+              <>
+                <div className="h-6 w-px bg-gray-200 dark:bg-gray-700" />
+                <div className="flex flex-col items-start">
+                  <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest leading-none mb-0.5">Lucro Estimado</p>
+                  <p className="text-sm md:text-base font-black text-green-600 dark:text-green-400 leading-none flex items-center gap-1.5">
+                    {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format((data.targetAttendees * data.ticketPrice) - total)}
+                    <span className="text-[8px] text-gray-400 font-medium normal-case tracking-normal">
+                      ({data.targetAttendees}x {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(data.ticketPrice)})
+                    </span>
+                  </p>
+                </div>
+              </>
+            ) : null}
           </div>
           <button 
             onClick={() => onSave(data)}
             disabled={!data.title}
-            className="w-full md:w-auto flex items-center justify-center gap-2 bg-primary text-white px-8 py-3.5 rounded-xl font-black uppercase tracking-tighter text-sm hover:bg-primary-dark transition-colors shadow-lg shadow-primary/30 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full flex items-center justify-center gap-2 bg-primary text-white px-6 py-3 rounded-xl font-black uppercase tracking-tighter text-sm hover:bg-primary-dark transition-colors shadow-lg shadow-primary/30 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <SaveIcon className="w-5 h-5" />
             Salvar Cotação
