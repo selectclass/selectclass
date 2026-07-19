@@ -1,0 +1,1 @@
+sed -i 's/{dayEventNames.map((name, idx) => <div key={idx}>{name}<\/div>)}/{dayEventNames.map((evt, idx) => <div key={idx} className={evt.isCotacao ? "cursor-pointer hover:text-sky-300" : ""} onClick={() => { if (evt.isCotacao \&\& onCotacaoClick) onCotacaoClick(evt.id); }}>{evt.name}<\/div>)}/g' components/Calendar.tsx

@@ -1,0 +1,1 @@
+sed -i 's/const \[allEvents, setAllEvents\] = useState<CalendarEvent\[\]>(\[\]);/const [allEvents, setAllEvents] = useState<CalendarEvent[]>([]);\n  const [cotacoes, setCotacoes] = useState<any[]>([]);/g' App.tsx

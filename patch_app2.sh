@@ -1,0 +1,2 @@
+sed -i 's/const \[eventsData, coursesData, studentsData, expensesData, palestrasData, lectureModelsData\] = await Promise.all(\[/const [eventsData, coursesData, studentsData, expensesData, palestrasData, lectureModelsData, cotacoesData] = await Promise.all([/g' App.tsx
+sed -i 's/api.get('\''v1\/lecture_models'\'')/api.get('\''v1\/lecture_models'\''),\n        api.get('\''v1\/data\/cotacoes'\'')/g' App.tsx

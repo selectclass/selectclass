@@ -1,0 +1,1 @@
+sed -i 's/setIsInitialLoading(false);/setCotacoes(cotacoesData ? Object.values(cotacoesData).map((c: any) => ({ ...c, date: c.date ? new Date(c.date) : undefined, endDate: c.endDate ? new Date(c.endDate) : undefined })) : []);\n    setIsInitialLoading(false);/g' App.tsx
