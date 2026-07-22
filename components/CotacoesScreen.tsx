@@ -103,6 +103,17 @@ export const CotacoesScreen: React.FC<CotacoesScreenProps> = ({
         }));
         setCotacoes(parsedQuotes.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()));
       }
+      
+      if (failedRes) {
+        const parsedFailed = Object.values(failedRes).map((f: any) => ({
+          ...f,
+          date: new Date(f.date),
+          createdAt: new Date(f.createdAt)
+        }));
+        setFailedCotacoes(parsedFailed.sort((a: any, b: any) => b.createdAt.getTime() - a.createdAt.getTime()));
+      } else {
+        setFailedCotacoes([]);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -186,12 +197,12 @@ export const CotacoesScreen: React.FC<CotacoesScreenProps> = ({
       date: failedQuote.date.toISOString(),
       createdAt: failedQuote.createdAt.toISOString()
     });
-    fetchData();
+    await fetchData();
   };
 
   const handleDeleteFailedQuote = async (id: string) => {
     await api.delete(`v1/data/failedCotacoes/${id}`);
-    fetchData();
+    await fetchData();
   };
 
   const handleDeleteQuote = async (id: string) => {
@@ -316,7 +327,7 @@ export const CotacoesScreen: React.FC<CotacoesScreenProps> = ({
                  className="flex-1 py-3 flex items-center justify-center gap-2 bg-red-500/10 dark:bg-red-500/20 text-red-600 dark:text-red-400 border border-red-500/20 dark:border-red-500/30 rounded-xl font-black tracking-widest uppercase text-[9px] hover:bg-red-500/20 active:scale-95 transition-all shadow-sm"
                >
                  <AlertCircleIcon className="w-4 h-4 shrink-0" />
-                 Locais Testados
+                 Estados Testados
                </button>
            </div>
            
@@ -919,6 +930,7 @@ const QuoteModal = ({ quote, categorias, onSave, onClose, generateId, getDayEven
 
 const FailedCotacoesModal = ({ isOpen, onClose, failedCotacoes, onSave, onDelete, generateId }: any) => {
   const [data, setData] = useState<Partial<FailedCotacao>>({});
+  const [adSpendText, setAdSpendText] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'menu' | 'add' | 'history'>('menu');
@@ -957,6 +969,8 @@ const FailedCotacoesModal = ({ isOpen, onClose, failedCotacoes, onSave, onDelete
       adSpend: f.adSpend,
       createdAt: f.createdAt
     });
+    
+    setAdSpendText(f.adSpend ? formatCurrencyInput(f.adSpend) : '');
   };
 
   const handleCancelEdit = () => {
@@ -1011,8 +1025,8 @@ const FailedCotacoesModal = ({ isOpen, onClose, failedCotacoes, onSave, onDelete
               <AlertCircleIcon className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-xl font-black text-gray-800 dark:text-white uppercase tracking-tighter">Locais Testados</h2>
-              <p className="text-xs text-gray-500 font-medium">Relatório de locais testados sem sucesso</p>
+              <h2 className="text-xl font-black text-gray-800 dark:text-white uppercase tracking-tighter">Estados Testados</h2>
+              <p className="text-xs text-gray-500 font-medium">Relatório de estados testados sem sucesso</p>
             </div>
           </div>
           <button onClick={onClose} className="p-2.5 rounded-2xl bg-gray-100 dark:bg-white/5 text-gray-400 hover:text-primary hover:bg-gray-200 dark:hover:bg-white/10 transition-all active:scale-95 border border-gray-200 dark:border-gray-800 shadow-sm">
@@ -1023,14 +1037,14 @@ const FailedCotacoesModal = ({ isOpen, onClose, failedCotacoes, onSave, onDelete
         {viewMode === 'menu' && (
           <div className="p-6 flex-1 flex flex-col justify-center items-center gap-4 bg-gray-50 dark:bg-black/20">
             <button 
-              onClick={() => { setViewMode('add'); setData({}); setEditingId(null); }}
+              onClick={() => { setViewMode('add'); setData({ date: new Date() }); setEditingId(null); setAdSpendText(''); }}
               className="w-full max-w-sm p-6 bg-white dark:bg-white/5 border border-gray-200 dark:border-gray-800 rounded-2xl shadow-sm hover:shadow-md hover:border-primary/50 transition-all group flex flex-col items-center text-center"
             >
               <div className="w-12 h-12 rounded-full bg-primary/10 text-primary flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
                 <PlusIcon className="w-6 h-6" />
               </div>
-              <h3 className="font-bold text-gray-800 dark:text-white text-lg mb-1">Adicionar Local</h3>
-              <p className="text-xs text-gray-500">Cadastre um novo local testado sem sucesso.</p>
+              <h3 className="font-bold text-gray-800 dark:text-white text-lg mb-1">Adicionar Estado</h3>
+              <p className="text-xs text-gray-500">Cadastre um novo estado testado sem sucesso.</p>
             </button>
 
             <button 
@@ -1041,7 +1055,7 @@ const FailedCotacoesModal = ({ isOpen, onClose, failedCotacoes, onSave, onDelete
                 <HistoryIcon className="w-6 h-6" />
               </div>
               <h3 className="font-bold text-gray-800 dark:text-white text-lg mb-1">Ver Histórico</h3>
-              <p className="text-xs text-gray-500">Veja todos os locais que já foram testados.</p>
+              <p className="text-xs text-gray-500">Veja todos os estados que já foram testados.</p>
             </button>
           </div>
         )}
@@ -1063,26 +1077,43 @@ const FailedCotacoesModal = ({ isOpen, onClose, failedCotacoes, onSave, onDelete
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
                 <div className="md:col-span-1">
                   <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Data da Tentativa</label>
-                  <input 
-                    type="date" 
-                    value={data.date ? (data.date as any).toISOString().split('T')[0] : ''} 
-                    onChange={e => {
-                      if (!e.target.value) return;
-                      const [y, m, d] = e.target.value.split('-').map(Number);
-                      const newDate = new Date(y, m - 1, d, 12, 0, 0);
-                      setData({...data, date: newDate});
-                    }}
-                    className="w-full bg-gray-50 dark:bg-black/20 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm font-medium text-gray-800 dark:text-white"
-                  />
+                  <div className="flex gap-2">
+                    <select
+                      value={data.date ? (data.date as Date).getMonth() : new Date().getMonth()}
+                      onChange={e => {
+                        const m = Number(e.target.value);
+                        const y = data.date ? (data.date as Date).getFullYear() : new Date().getFullYear();
+                        setData({...data, date: new Date(y, m, 1, 12, 0, 0)});
+                      }}
+                      className="w-1/2 bg-gray-50 dark:bg-black/20 border border-gray-200 dark:border-gray-700 rounded-xl px-2 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm font-medium text-gray-800 dark:text-white"
+                    >
+                      {months.map((m, i) => (
+                        <option key={i} value={m.value}>{m.label}</option>
+                      ))}
+                    </select>
+                    <select
+                      value={data.date ? (data.date as Date).getFullYear() : new Date().getFullYear()}
+                      onChange={e => {
+                        const y = Number(e.target.value);
+                        const m = data.date ? (data.date as Date).getMonth() : new Date().getMonth();
+                        setData({...data, date: new Date(y, m, 1, 12, 0, 0)});
+                      }}
+                      className="w-1/2 bg-gray-50 dark:bg-black/20 border border-gray-200 dark:border-gray-700 rounded-xl px-2 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm font-medium text-gray-800 dark:text-white"
+                    >
+                      {Array.from({ length: 2100 - new Date().getFullYear() + 1 }, (_, i) => new Date().getFullYear() + i).map(y => (
+                        <option key={y} value={y}>{y}</option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
                 <div className="md:col-span-2">
-                  <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Nome do Local</label>
+                  <label className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">Nome do Estado</label>
                   <input 
                     type="text" 
                     value={data.name || ''} 
                     onChange={e => setData({...data, name: e.target.value})}
                     className="w-full bg-gray-50 dark:bg-black/20 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm font-medium text-gray-800 dark:text-white"
-                    placeholder="Ex: Centro de Convenções XYZ"
+                    placeholder="Ex: São Paulo, Rio de Janeiro"
                   />
                 </div>
               </div>
@@ -1092,13 +1123,15 @@ const FailedCotacoesModal = ({ isOpen, onClose, failedCotacoes, onSave, onDelete
                   <div className="relative">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm font-bold">R$</span>
                     <input 
-                      type="number" 
-                      value={data.adSpend || ''} 
-                      onChange={e => setData({...data, adSpend: parseFloat(e.target.value) || 0})}
+                      type="text" 
+                      value={adSpendText} 
+                      onChange={e => {
+                        const val = formatCurrencyInput(e.target.value);
+                        setAdSpendText(val);
+                        setData({...data, adSpend: parseCurrency(val)});
+                      }}
                       className="w-full bg-gray-50 dark:bg-black/20 border border-gray-200 dark:border-gray-700 rounded-xl pl-9 pr-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm font-medium text-gray-800 dark:text-white"
-                      placeholder="0.00"
-                      step="0.01"
-                      min="0"
+                      placeholder="0,00"
                     />
                   </div>
                 </div>
@@ -1202,7 +1235,7 @@ const FailedCotacoesModal = ({ isOpen, onClose, failedCotacoes, onSave, onDelete
                     <div className="w-12 h-12 bg-gray-100 dark:bg-white/5 rounded-full flex items-center justify-center mx-auto mb-3 text-gray-400">
                       <AlertCircleIcon className="w-6 h-6" />
                     </div>
-                    <p className="text-sm font-medium text-gray-500">Nenhum local marcado como testado.</p>
+                    <p className="text-sm font-medium text-gray-500">Nenhum estado marcado como testado.</p>
                  </div>
               )}
             </div>
