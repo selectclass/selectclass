@@ -148,3 +148,11 @@ export interface DayData {
   date: Date;
   events: CalendarEvent[];
 }
+
+export interface FailedCotacao {
+  id: string;
+  name: string;
+  date: Date;
+  adSpend: number;
+  createdAt: Date;
+}
