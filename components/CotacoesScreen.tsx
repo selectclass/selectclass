@@ -46,6 +46,11 @@ export const CotacoesScreen: React.FC<CotacoesScreenProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [showAllDates, setShowAllDates] = useState(false);
+  const [expandedQuotes, setExpandedQuotes] = useState<Record<string, boolean>>({});
+  
+  const toggleQuote = (id: string) => {
+    setExpandedQuotes(prev => ({ ...prev, [id]: !prev[id] }));
+  };
 
   useEffect(() => {
     if (targetCotacaoId && cotacoes.length > 0) {
@@ -263,7 +268,7 @@ export const CotacoesScreen: React.FC<CotacoesScreenProps> = ({
     }
 
     return matchesSearch && matchesDate;
-  });
+  }).sort((a, b) => a.date.getTime() - b.date.getTime());
 
   return (
     <div className="flex flex-col h-full bg-[#F3F4F6] dark:bg-bg-dark animate-fade-in relative">
@@ -378,7 +383,7 @@ export const CotacoesScreen: React.FC<CotacoesScreenProps> = ({
                   <div className="flex justify-between items-start mb-4">
                     <div>
                       <h3 className="font-bold text-gray-800 dark:text-white text-lg">{quote.title}</h3>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1 flex items-center gap-1">
+                      <p className="text-xs font-bold text-black dark:text-white mt-1 flex items-center gap-1">
                         <CalendarIcon className="w-3 h-3" />
                         {quote.date.toLocaleDateString('pt-BR')}
                         {quote.endDate ? ` a ${quote.endDate.toLocaleDateString('pt-BR')}` : ''}
@@ -414,39 +419,53 @@ export const CotacoesScreen: React.FC<CotacoesScreenProps> = ({
                     </div>
                   )}
 
-                  <div className="space-y-3 mb-4 flex-1">
-                    {quote.items.filter(i => i.value > 0 || i.description).map(item => (
-                      <div key={item.id} className={`flex justify-between items-center text-sm ${item.included === false ? 'opacity-50' : ''}`}>
-                        <div className="flex items-center gap-2 max-w-[65%]">
-                          <label className="relative inline-flex items-center cursor-pointer shrink-0">
-                            <input 
-                              type="checkbox" 
-                              className="sr-only peer"
-                              checked={item.included !== false}
-                              onChange={async (e) => {
-                                const newItems = quote.items.map(i => i.id === item.id ? { ...i, included: e.target.checked } : i);
-                                await handleSaveQuote({ ...quote, items: newItems });
-                              }}
-                            />
-                            <div className="w-7 h-4 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary/50 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all dark:border-gray-600 peer-checked:bg-primary"></div>
-                          </label>
-                          <span className="text-gray-600 dark:text-gray-300 truncate">
-                            {categorias.find(c => c.id === item.categoryId)?.name || 'Outro'} {item.description && <span className="text-gray-400">- {item.description}</span>}
-                          </span>
+                  <div className="flex-1">
+                    {expandedQuotes[quote.id] && (
+                      <div className="animate-fade-in">
+                        <div className="space-y-3 mb-4">
+                          {quote.items.filter(i => i.value > 0 || i.description).map(item => (
+                            <div key={item.id} className={`flex justify-between items-center text-sm ${item.included === false ? 'opacity-50' : ''}`}>
+                              <div className="flex items-center gap-2 max-w-[65%]">
+                                <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                                  <input 
+                                    type="checkbox" 
+                                    className="sr-only peer"
+                                    checked={item.included !== false}
+                                    onChange={async (e) => {
+                                      const newItems = quote.items.map(i => i.id === item.id ? { ...i, included: e.target.checked } : i);
+                                      await handleSaveQuote({ ...quote, items: newItems });
+                                    }}
+                                  />
+                                  <div className="w-7 h-4 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-primary/50 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all dark:border-gray-600 peer-checked:bg-primary"></div>
+                                </label>
+                                <span className="text-gray-600 dark:text-gray-300 truncate">
+                                  {categorias.find(c => c.id === item.categoryId)?.name || 'Outro'} {item.description && <span className="text-gray-400">- {item.description}</span>}
+                                </span>
+                              </div>
+                              <span className={`font-semibold text-gray-800 dark:text-white ${item.included === false ? 'line-through' : ''}`}>
+                                {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.value)}
+                              </span>
+                            </div>
+                          ))}
                         </div>
-                        <span className={`font-semibold text-gray-800 dark:text-white ${item.included === false ? 'line-through' : ''}`}>
-                          {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(item.value)}
-                        </span>
+                        
+                        {quote.notes && (
+                          <div className="pt-4 mt-2 border-t border-gray-100 dark:border-gray-800">
+                            <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1.5">Observações</p>
+                            <p className="text-sm text-gray-600 dark:text-gray-300 whitespace-pre-wrap">{quote.notes}</p>
+                          </div>
+                        )}
                       </div>
-                    ))}
+                    )}
                   </div>
                   
-                  {quote.notes && (
-                    <div className="pt-4 mt-2 border-t border-gray-100 dark:border-gray-800">
-                      <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-1.5">Observações</p>
-                      <p className="text-sm text-gray-600 dark:text-gray-300 whitespace-pre-wrap">{quote.notes}</p>
-                    </div>
-                  )}
+                  <button 
+                    onClick={() => toggleQuote(quote.id)} 
+                    className="flex items-center justify-center gap-1 text-[10px] font-bold text-gray-400 hover:text-primary transition-colors w-full mb-4 uppercase tracking-widest"
+                  >
+                    {expandedQuotes[quote.id] ? 'Ocultar detalhes' : 'Ver detalhes'}
+                    <svg className={`w-3.5 h-3.5 transition-transform ${expandedQuotes[quote.id] ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                  </button>
 
                   <div className="pt-4 border-t border-gray-100 dark:border-gray-800 flex items-center gap-3 md:gap-4 mt-auto">
                     <div>
@@ -996,7 +1015,7 @@ const FailedCotacoesModal = ({ isOpen, onClose, failedCotacoes, onSave, onDelete
         const matchYear = filterYear === 'all' || d.getFullYear() === filterYear;
         return matchMonth && matchYear;
       })
-      .sort((a: FailedCotacao, b: FailedCotacao) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      .sort((a: FailedCotacao, b: FailedCotacao) => new Date(a.date).getTime() - new Date(b.date).getTime());
   }, [failedCotacoes, filterMonth, filterYear]);
 
   const totalLoss = sortedFailed.reduce((sum, f) => sum + (f.adSpend || 0), 0);
@@ -1024,9 +1043,9 @@ const FailedCotacoesModal = ({ isOpen, onClose, failedCotacoes, onSave, onDelete
             <div className="w-10 h-10 rounded-xl bg-red-100 dark:bg-red-500/20 text-red-500 flex items-center justify-center">
               <AlertCircleIcon className="w-5 h-5" />
             </div>
-            <div>
-              <h2 className="text-xl font-black text-gray-800 dark:text-white uppercase tracking-tighter">Estados Testados</h2>
-              <p className="text-xs text-gray-500 font-medium">Relatório de estados testados sem sucesso</p>
+            <div className="overflow-hidden">
+              <h2 className="text-xl font-black text-gray-800 dark:text-white uppercase tracking-tighter truncate">Estados Testados</h2>
+              <p className="text-[10px] sm:text-xs text-gray-500 font-medium whitespace-nowrap truncate">Relatório de estados testados sem sucesso</p>
             </div>
           </div>
           <button onClick={onClose} className="p-2.5 rounded-2xl bg-gray-100 dark:bg-white/5 text-gray-400 hover:text-primary hover:bg-gray-200 dark:hover:bg-white/10 transition-all active:scale-95 border border-gray-200 dark:border-gray-800 shadow-sm">
@@ -1035,27 +1054,24 @@ const FailedCotacoesModal = ({ isOpen, onClose, failedCotacoes, onSave, onDelete
         </div>
 
         {viewMode === 'menu' && (
-          <div className="p-6 flex-1 flex flex-col justify-center items-center gap-4 bg-gray-50 dark:bg-black/20">
+          <div className="p-6 flex-1 flex flex-row justify-center items-center gap-4 bg-gray-50 dark:bg-black/20">
             <button 
               onClick={() => { setViewMode('add'); setData({ date: new Date() }); setEditingId(null); setAdSpendText(''); }}
-              className="w-full max-w-sm p-6 bg-white dark:bg-white/5 border border-gray-200 dark:border-gray-800 rounded-2xl shadow-sm hover:shadow-md hover:border-primary/50 transition-all group flex flex-col items-center text-center"
+              className="flex-1 h-32 p-4 bg-white dark:bg-white/5 border border-gray-200 dark:border-gray-800 rounded-2xl shadow-sm hover:shadow-md hover:border-primary/50 transition-all group flex flex-col items-center justify-center text-center"
             >
-              <div className="w-12 h-12 rounded-full bg-primary/10 text-primary flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                <PlusIcon className="w-6 h-6" />
+              <div className="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center mb-3 group-hover:scale-110 transition-transform shrink-0">
+                <PlusIcon className="w-5 h-5" />
               </div>
-              <h3 className="font-bold text-gray-800 dark:text-white text-lg mb-1">Adicionar Estado</h3>
-              <p className="text-xs text-gray-500">Cadastre um novo estado testado sem sucesso.</p>
+              <h3 className="font-bold text-gray-800 dark:text-white text-[11px] sm:text-xs whitespace-nowrap">Adicionar Estado</h3>
             </button>
-
             <button 
               onClick={() => setViewMode('history')}
-              className="w-full max-w-sm p-6 bg-white dark:bg-white/5 border border-gray-200 dark:border-gray-800 rounded-2xl shadow-sm hover:shadow-md hover:border-primary/50 transition-all group flex flex-col items-center text-center"
+              className="flex-1 h-32 p-4 bg-white dark:bg-white/5 border border-gray-200 dark:border-gray-800 rounded-2xl shadow-sm hover:shadow-md hover:border-primary/50 transition-all group flex flex-col items-center justify-center text-center"
             >
-              <div className="w-12 h-12 rounded-full bg-primary/10 text-primary flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                <HistoryIcon className="w-6 h-6" />
+              <div className="w-10 h-10 rounded-full bg-primary/10 text-primary flex items-center justify-center mb-3 group-hover:scale-110 transition-transform shrink-0">
+                <HistoryIcon className="w-5 h-5" />
               </div>
-              <h3 className="font-bold text-gray-800 dark:text-white text-lg mb-1">Ver Histórico</h3>
-              <p className="text-xs text-gray-500">Veja todos os estados que já foram testados.</p>
+              <h3 className="font-bold text-gray-800 dark:text-white text-[11px] sm:text-xs whitespace-nowrap">Ver Estados</h3>
             </button>
           </div>
         )}
@@ -1204,14 +1220,13 @@ const FailedCotacoesModal = ({ isOpen, onClose, failedCotacoes, onSave, onDelete
                   ) : (
                     <>
                       <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 bg-gray-50 dark:bg-black/20 rounded-xl flex flex-col items-center justify-center shrink-0 border border-gray-100 dark:border-gray-800">
-                          <span className="text-[10px] font-bold text-gray-400 uppercase leading-none mb-1">{f.date.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '')}</span>
-                          <span className="text-lg font-black text-gray-800 dark:text-white leading-none">{f.date.getDate()}</span>
+                        <div className="w-12 h-12 bg-gray-50 dark:bg-black/20 rounded-xl flex items-center justify-center shrink-0 border border-gray-100 dark:border-gray-800">
+                          <span className="text-base font-black text-gray-800 dark:text-white uppercase leading-none">{f.date.toLocaleDateString('pt-BR', { month: 'short' }).replace('.', '')}</span>
                         </div>
                         <div>
                           <h4 className="font-bold text-gray-800 dark:text-white text-sm">{f.name}</h4>
                           <div className="flex items-center gap-2 mt-1">
-                            <span className="text-[10px] font-bold uppercase tracking-widest text-red-500 bg-red-50 dark:bg-red-500/10 px-2 py-0.5 rounded text-xs">
+                            <span className="text-[10px] font-bold text-red-500 bg-red-50 dark:bg-red-500/10 px-2 py-0.5 rounded tracking-wide">
                               Gasto: {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(f.adSpend || 0)}
                             </span>
                           </div>
@@ -1245,7 +1260,7 @@ const FailedCotacoesModal = ({ isOpen, onClose, failedCotacoes, onSave, onDelete
         {viewMode === 'history' && (
           <div className="p-6 border-t border-gray-100 dark:border-gray-800 shrink-0 bg-white dark:bg-surface-dark rounded-b-3xl">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-gray-500 uppercase tracking-widest">Total Gasto em Insucessos</span>
+              <span className="text-xs font-bold text-gray-500 uppercase tracking-widest">Total de Gastos</span>
               <span className="text-lg font-black text-red-500">
                 {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalLoss)}
               </span>
