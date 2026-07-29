@@ -5,6 +5,33 @@ import { FailedCotacao } from '../types';
 import { formatCurrencyInput, parseCurrency } from '../utils/currency';
 import { Calendar } from './Calendar';
 
+const getTimeLeft = (targetDate: Date | string) => {
+  if (!targetDate) return '';
+  const now = new Date();
+  now.setHours(0,0,0,0);
+  const target = new Date(targetDate);
+  target.setHours(0,0,0,0);
+  
+  if (target.getTime() < now.getTime()) return '';
+  
+  let months = target.getMonth() - now.getMonth() + (12 * (target.getFullYear() - now.getFullYear()));
+  let days = target.getDate() - now.getDate();
+  
+  if (days < 0) {
+    months--;
+    const previousMonth = new Date(target.getFullYear(), target.getMonth(), 0);
+    days += previousMonth.getDate();
+  }
+  
+  if (months === 0 && days === 0) return '(Hoje)';
+  
+  const parts = [];
+  if (months > 0) parts.push(`${months} ${months === 1 ? 'mês' : 'meses'}`);
+  if (days > 0) parts.push(`${days} ${days === 1 ? 'dia' : 'dias'}`);
+  
+  return `(Faltam ${parts.join(' e ')})`;
+};
+
 interface CotacoesScreenProps {
   targetCotacaoId?: string | null;
   onClearTargetCotacao?: () => void;
@@ -382,12 +409,15 @@ export const CotacoesScreen: React.FC<CotacoesScreenProps> = ({
                 <div key={quote.id} className="bg-white dark:bg-surface-dark p-5 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-800 flex flex-col group relative overflow-hidden transition-all hover:shadow-md">
                   <div className="flex justify-between items-start mb-4">
                     <div>
-                      <h3 className="font-bold text-gray-800 dark:text-white text-lg">{quote.title}</h3>
+                      <h3 className="font-bold text-gray-800 dark:text-white text-base">{quote.title}</h3>
                       <p className="text-xs font-bold text-black dark:text-white mt-1 flex items-center gap-1">
                         <CalendarIcon className="w-3 h-3" />
                         {quote.date.toLocaleDateString('pt-BR')}
                         {quote.endDate ? ` a ${quote.endDate.toLocaleDateString('pt-BR')}` : ''}
                       </p>
+                      {quote.date && getTimeLeft(quote.date) && (
+                        <p className="text-[10px] font-medium text-gray-500 mt-0.5">{getTimeLeft(quote.date)}</p>
+                      )}
                     </div>
                     <div className="flex items-center gap-2">
                       <button onClick={() => { setEditingQuote(quote); setIsQuoteModalOpen(true); }} className="p-2 text-gray-400 hover:text-primary transition-colors bg-gray-50 dark:bg-white/5 rounded-xl">
