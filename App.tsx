@@ -26,7 +26,7 @@ import { UnifiedSearch } from './components/UnifiedSearch';
 import { LectureModelManager } from './components/LectureModelManager';
 import { MenuIcon, PlusIcon, MoonIcon, SunIcon, EyeIcon, EyeOffIcon, CalendarIcon, AlertCircleIcon, XIcon, BoxIcon, MicIcon, GraduationCapIcon, SearchIcon, ChevronUpIcon, ChevronDownIcon, CheckIcon, BellIcon, ChevronLeftIcon } from './components/Icons';
 import { parseCurrency } from './utils/currency';
-import { isEventOverdue } from './utils/eventUtils';
+import { isEventOverdue, getEventScheduleDates } from './utils/eventUtils';
 
 const FIREBASE_URL = "https://selectclass-dd1d0-default-rtdb.firebaseio.com/";
 const DEFAULT_CREDENTIALS = { user: 'danieledias', pass: '@Dn201974' };
@@ -130,12 +130,29 @@ function App() {
         api.get('v1/lecture_models'),
         api.get('v1/data/cotacoes')
     ]);
-    const normalizeEvents = (data: any) => data ? Object.values(data).map((e: any) => ({ 
-        ...e, 
-        date: e.date ? new Date(e.date) : undefined, 
-        createdAt: e.createdAt ? new Date(e.createdAt) : undefined,
-        payments: e.payments ? e.payments.map((p: any) => ({...p, date: new Date(p.date)})) : [] 
-    })) : [];
+    const normalizeEvents = (data: any) => data ? Object.values(data).map((e: any) => {
+        let normalizedDates = e.installmentDates;
+        if (normalizedDates) {
+            if (Array.isArray(normalizedDates)) {
+                normalizedDates = normalizedDates.reduce((acc: any, val: any, i: number) => { 
+                    if (val && val.trim() !== '') acc[i] = val; 
+                    return acc; 
+                }, {});
+            } else {
+                normalizedDates = Object.entries(normalizedDates).reduce((acc: any, [k,v]: [string, any]) => { 
+                    if (v && typeof v === 'string' && v.trim() !== '') acc[parseInt(k)] = v; 
+                    return acc; 
+                }, {});
+            }
+        }
+        return { 
+            ...e, 
+            installmentDates: normalizedDates || {},
+            date: e.date ? new Date(e.date) : undefined, 
+            createdAt: e.createdAt ? new Date(e.createdAt) : undefined,
+            payments: e.payments ? e.payments.map((p: any) => ({...p, date: new Date(p.date)})) : [] 
+        };
+    }) : [];
     
     const coursesArr = coursesData ? Object.values(coursesData) as CourseType[] : [];
     const lecturesArr = lectureModelsData ? Object.values(lectureModelsData) as LectureModel[] : [];
@@ -215,51 +232,8 @@ function App() {
 
       // Calculate schedule
       const startDate = new Date(evt.createdAt);
-      const courseDate = new Date(evt.date);
-      courseDate.setHours(0,0,0,0);
-      const deadlineDays = evt.paymentDeadlineDays || 0;
-      const interval = evt.paymentFrequency === 'weekly' ? 7 : evt.paymentFrequency === 'monthly' ? 30 : 15;
       
-      const maxDate = new Date(courseDate);
-      maxDate.setDate(courseDate.getDate() - deadlineDays);
-      
-      const scheduleDates: Date[] = [];
-      let i = 1;
-      while (true) {
-        let d = new Date(startDate);
-        d.setDate(startDate.getDate() + (interval * i));
-        
-        let isLast = false;
-        if (d.getTime() >= maxDate.getTime()) {
-          d = new Date(maxDate);
-          isLast = true;
-        }
-        
-        let finalD = d;
-        let hasMoreCustomDates = false;
-        if (evt.installmentDates) {
-          const keys = Object.keys(evt.installmentDates).map(Number);
-          if (keys.length > 0) {
-             hasMoreCustomDates = i < Math.max(...keys);
-          }
-          if (evt.installmentDates[i]) {
-            let dStr = evt.installmentDates[i];
-            if (dStr.indexOf('T') === -1) {
-              dStr += 'T12:00:00';
-            }
-            finalD = new Date(dStr);
-          }
-        }
-        
-        if (hasMoreCustomDates) {
-           isLast = false;
-        }
-        
-        scheduleDates.push(finalD);
-        if (isLast) break;
-        i++;
-        if (i > 50) break;
-      }
+      const scheduleDates: Date[] = getEventScheduleDates(evt);
 
       // Check if any installment is due or overdue
       return scheduleDates.some((d, idx) => {
