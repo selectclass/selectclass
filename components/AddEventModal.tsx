@@ -61,6 +61,7 @@ export const AddEventModal: React.FC<AddEventModalProps> = ({
   const [palestraType, setPalestraType] = useState<'MEU' | 'CONVIDADA'>('CONVIDADA');
   const [studentCount, setStudentCount] = useState<number>(1);
   const [includeInAnnualRevenue, setIncludeInAnnualRevenue] = useState<boolean>(true);
+  const [annualRevenueOwner, setAnnualRevenueOwner] = useState<'jhonatta' | 'daniele'>('jhonatta');
   const [street, setStreet] = useState('');
   const [number, setNumber] = useState('');
   const [neighborhood, setNeighborhood] = useState('');
@@ -167,6 +168,7 @@ const [zip, setZip] = useState('');
           setPalestraType(initialEvent.palestraType || 'CONVIDADA');
           setStudentCount(initialEvent.studentCount || 1);
           setIncludeInAnnualRevenue(initialEvent.includeInAnnualRevenue !== false);
+          setAnnualRevenueOwner(initialEvent.annualRevenueOwner || (localStorage.getItem('default_annual_revenue_owner') as 'jhonatta' | 'daniele') || 'jhonatta');
           setStreet(initialEvent.street || '');
           setNumber(initialEvent.number || '');
           setNeighborhood(initialEvent.neighborhood || '');
@@ -196,6 +198,8 @@ const [zip, setZip] = useState('');
           setPalestraType('CONVIDADA');
           setStudentCount(1);
           setIncludeInAnnualRevenue(true);
+          const savedOwner = (localStorage.getItem('default_annual_revenue_owner') as 'jhonatta' | 'daniele') || 'jhonatta';
+          setAnnualRevenueOwner(savedOwner);
           setMaterialsTemplate('');
       }
     }
@@ -309,7 +313,8 @@ const [zip, setZip] = useState('');
       createdAt: initialEvent?.createdAt || new Date(),
       palestraType: isPalestraMode ? palestraType : undefined,
       studentCount: (isPalestraMode && palestraType === 'MEU') ? studentCount : undefined,
-      includeInAnnualRevenue: isPalestraMode ? includeInAnnualRevenue : undefined
+      includeInAnnualRevenue: includeInAnnualRevenue,
+      annualRevenueOwner: includeInAnnualRevenue ? annualRevenueOwner : undefined
     }, baseDate);
   };
 
@@ -681,7 +686,7 @@ const [zip, setZip] = useState('');
               )}
 
               {!(isPalestraMode && palestraType === 'MEU') && (
-                <div className="bg-white dark:bg-surface-dark p-4 rounded-2xl shadow-sm animate-fade-in">
+                <div className="bg-white dark:bg-surface-dark p-4 rounded-2xl shadow-sm animate-fade-in space-y-3">
                   <div className="flex items-center gap-3">
                     <input 
                       type="checkbox" 
@@ -694,6 +699,26 @@ const [zip, setZip] = useState('');
                       Adicionar ao Faturamento Anual
                     </label>
                   </div>
+
+                  {includeInAnnualRevenue && (
+                    <div className="pl-8 pt-1 animate-fade-in">
+                      <label className="block text-[10px] font-black text-gray-500 dark:text-gray-400 uppercase tracking-widest mb-1.5">
+                        Qual Faturamento?
+                      </label>
+                      <select
+                        value={annualRevenueOwner}
+                        onChange={(e) => {
+                          const val = e.target.value as 'jhonatta' | 'daniele';
+                          setAnnualRevenueOwner(val);
+                          localStorage.setItem('default_annual_revenue_owner', val);
+                        }}
+                        className={`w-full bg-gray-50 dark:bg-bg-dark border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2.5 text-xs font-bold text-gray-800 dark:text-white focus:outline-none focus:ring-2 ${isPalestraMode ? 'focus:ring-sky-500' : 'focus:ring-primary'}`}
+                      >
+                        <option value="jhonatta">Jhonatta Guimarães</option>
+                        <option value="daniele">Daniele Dias</option>
+                      </select>
+                    </div>
+                  )}
                 </div>
               )}
 

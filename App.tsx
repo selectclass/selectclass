@@ -52,14 +52,23 @@ function App() {
   const [isDarkMode, setIsDarkMode] = useState(() => localStorage.getItem('theme') === 'dark');
   const [primaryColor, setPrimaryColor] = useState(() => localStorage.getItem('primaryColor') || '#1A4373');
   const [instructorName, setInstructorName] = useState(() => localStorage.getItem('instructorName') || 'Daniele Dias');
-  const [annualGoal, setAnnualGoal] = useState(() => {
-    const saved = localStorage.getItem('annualGoal');
+  const [annualGoalJhonatta, setAnnualGoalJhonatta] = useState(() => {
+    const saved = localStorage.getItem('annualGoal_jhonatta') || localStorage.getItem('annualGoal');
+    return saved ? parseFloat(saved) : 81000;
+  });
+
+  const [annualGoalDaniele, setAnnualGoalDaniele] = useState(() => {
+    const saved = localStorage.getItem('annualGoal_daniele');
     return saved ? parseFloat(saved) : 81000;
   });
 
   useEffect(() => {
-    localStorage.setItem('annualGoal', annualGoal.toString());
-  }, [annualGoal]);
+    localStorage.setItem('annualGoal_jhonatta', annualGoalJhonatta.toString());
+  }, [annualGoalJhonatta]);
+
+  useEffect(() => {
+    localStorage.setItem('annualGoal_daniele', annualGoalDaniele.toString());
+  }, [annualGoalDaniele]);
 
   useEffect(() => {
     localStorage.setItem('instructorName', instructorName);
@@ -1113,7 +1122,7 @@ function App() {
       case AppView.LECTURE_MODELS: return <LectureModelManager models={lectureModels} onAdd={(m) => api.put('v1/lecture_models/' + m.id, m).then(refreshData)} onRemove={(id) => api.delete('v1/lecture_models/' + id).then(refreshData)} onSaveOrder={handleSaveLectureOrder} onClose={() => { setCurrentView(AppView.HOME); refreshData(); }} />;
       case AppView.STUDENTS: return <StudentsList students={students} onEdit={(s) => { setEditingStudent(s); setIsStudentModalOpen(true); }} onDelete={(id) => setDeleteStudentData({ isOpen: true, studentId: id })} onClose={() => { setCurrentView(AppView.HOME); refreshData(); }} />;
       case AppView.HISTORY: return <HistoryScreen events={allEvents} courseTypes={courseTypes} onClose={() => { setCurrentView(AppView.HOME); refreshData(); }} />;
-      case AppView.FINANCIAL: return <FinancialScreen events={allEvents} annualGoal={annualGoal} onUpdateGoal={setAnnualGoal} expenses={expenses} courseTypes={courseTypes} lectureModels={lectureModels} onClose={() => { setCurrentView(AppView.HOME); refreshData(); }} />;
+      case AppView.FINANCIAL: return <FinancialScreen events={allEvents} annualGoalJhonatta={annualGoalJhonatta} annualGoalDaniele={annualGoalDaniele} onUpdateGoalJhonatta={setAnnualGoalJhonatta} onUpdateGoalDaniele={setAnnualGoalDaniele} expenses={expenses} courseTypes={courseTypes} lectureModels={lectureModels} onClose={() => { setCurrentView(AppView.HOME); refreshData(); }} />;
       case AppView.ADD_EVENTS: return <CourseManager courseTypes={courseTypes} onAddCourse={(c) => api.put('v1/courses/' + c.id, c).then(refreshData)} onUpdateCourse={(c) => api.put('v1/courses/' + c.id, c).then(refreshData)} onRemoveCourse={(id) => api.delete('v1/courses/' + id).then(refreshData)} onSaveOrder={handleSaveCourseOrder} onClose={() => { setCurrentView(AppView.HOME); refreshData(); }} />;
       case AppView.MATERIALS: return <MaterialsScreen courseTypes={courseTypes} onUpdateCourse={(c) => api.put('v1/courses/' + c.id, c).then(refreshData)} onClose={() => { setCurrentView(AppView.HOME); refreshData(); }} />;
       case AppView.ANALYTICS: return <AnalyticsScreen events={allEvents} courseTypes={courseTypes} lectureModels={lectureModels} onClose={() => { setCurrentView(AppView.HOME); refreshData(); }} />;

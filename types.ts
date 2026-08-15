@@ -141,6 +141,7 @@ export interface CalendarEvent {
   palestraType?: 'MEU' | 'CONVIDADA';
   studentCount?: number;
   includeInAnnualRevenue?: boolean;
+  annualRevenueOwner?: 'jhonatta' | 'daniele';
   installmentDates?: { [installment: number]: string };
 }
 

@@ -6,15 +6,31 @@ import { formatCurrencyInput, parseCurrency } from '../utils/currency';
 
 interface FinancialScreenProps {
   events: CalendarEvent[];
-  annualGoal: number;
-  onUpdateGoal: (goal: number) => void;
+  annualGoal?: number;
+  annualGoalJhonatta?: number;
+  annualGoalDaniele?: number;
+  onUpdateGoal?: (goal: number) => void;
+  onUpdateGoalJhonatta?: (goal: number) => void;
+  onUpdateGoalDaniele?: (goal: number) => void;
   expenses: Expense[];
   courseTypes: CourseType[];
   lectureModels: LectureModel[];
   onClose?: () => void;
 }
 
-export const FinancialScreen: React.FC<FinancialScreenProps> = ({ events, annualGoal, onUpdateGoal, expenses, courseTypes, lectureModels, onClose }) => {
+export const FinancialScreen: React.FC<FinancialScreenProps> = ({ 
+  events, 
+  annualGoal, 
+  annualGoalJhonatta, 
+  annualGoalDaniele, 
+  onUpdateGoal, 
+  onUpdateGoalJhonatta, 
+  onUpdateGoalDaniele, 
+  expenses, 
+  courseTypes, 
+  lectureModels, 
+  onClose 
+}) => {
   const now = new Date();
   
   const [selectedDay, setSelectedDay] = useState<number | 'all'>(now.getDate());
@@ -23,15 +39,28 @@ export const FinancialScreen: React.FC<FinancialScreenProps> = ({ events, annual
   const [filterType, setFilterType] = useState<'cursos' | 'palestras'>('cursos');
   const [touchedMonth, setTouchedMonth] = useState<number | null>(null);
 
-  const [isEditingGoal, setIsEditingGoal] = useState(false);
-  const [tempGoal, setTempGoal] = useState(formatCurrencyInput(annualGoal));
-  const goalInputRef = useRef<HTMLInputElement>(null);
+  const goalJhonatta = annualGoalJhonatta ?? annualGoal ?? 81000;
+  const goalDaniele = annualGoalDaniele ?? 81000;
+
+  const [isEditingGoalJhonatta, setIsEditingGoalJhonatta] = useState(false);
+  const [tempGoalJhonatta, setTempGoalJhonatta] = useState(formatCurrencyInput(goalJhonatta));
+  const goalInputRefJhonatta = useRef<HTMLInputElement>(null);
+
+  const [isEditingGoalDaniele, setIsEditingGoalDaniele] = useState(false);
+  const [tempGoalDaniele, setTempGoalDaniele] = useState(formatCurrencyInput(goalDaniele));
+  const goalInputRefDaniele = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (isEditingGoal && goalInputRef.current) {
-        goalInputRef.current.focus();
+    if (isEditingGoalJhonatta && goalInputRefJhonatta.current) {
+        goalInputRefJhonatta.current.focus();
     }
-  }, [isEditingGoal]);
+  }, [isEditingGoalJhonatta]);
+
+  useEffect(() => {
+    if (isEditingGoalDaniele && goalInputRefDaniele.current) {
+        goalInputRefDaniele.current.focus();
+    }
+  }, [isEditingGoalDaniele]);
 
   const years = Array.from({ length: 2100 - 2026 + 1 }, (_, i) => 2026 + i);
   const days = Array.from({ length: 31 }, (_, i) => i + 1);
@@ -129,13 +158,16 @@ export const FinancialScreen: React.FC<FinancialScreenProps> = ({ events, annual
 
   const maxChartValue = Math.max(...annualChartData.map(d => d.gross), 100);
 
-  const totalAnnualPaid = useMemo(() => {
+  const totalAnnualPaidJhonatta = useMemo(() => {
     return events.reduce((acc, e) => {
       if (!e.date) return acc;
       const d = new Date(e.date);
       if (d.getFullYear() !== selectedYear) return acc;
       
       if (e.includeInAnnualRevenue === false) return acc;
+
+      const owner = e.annualRevenueOwner || 'jhonatta';
+      if (owner !== 'jhonatta') return acc;
       
       const paymentsSum = e.payments?.reduce((pAcc, p) => pAcc + parseCurrency(p.amount), 0) || 0;
       if (e.paymentStatus === 'paid' && paymentsSum === 0) {
@@ -148,13 +180,45 @@ export const FinancialScreen: React.FC<FinancialScreenProps> = ({ events, annual
     }, 0);
   }, [events, selectedYear, courseTypes, lectureModels]);
 
-  const progressPercentage = annualGoal > 0 ? Math.min((totalAnnualPaid / annualGoal) * 100, 100) : 0;
+  const totalAnnualPaidDaniele = useMemo(() => {
+    return events.reduce((acc, e) => {
+      if (!e.date) return acc;
+      const d = new Date(e.date);
+      if (d.getFullYear() !== selectedYear) return acc;
+      
+      if (e.includeInAnnualRevenue === false) return acc;
 
-  const handleSaveGoal = () => {
-    const val = parseCurrency(tempGoal);
+      const owner = e.annualRevenueOwner || 'jhonatta';
+      if (owner !== 'daniele') return acc;
+      
+      const paymentsSum = e.payments?.reduce((pAcc, p) => pAcc + parseCurrency(p.amount), 0) || 0;
+      if (e.paymentStatus === 'paid' && paymentsSum === 0) {
+          const isPal = checkIfPalestra(e);
+          const baseVal = parseCurrency(e.value) || 0;
+          const totalVal = (isPal && e.palestraType === 'MEU') ? baseVal * (e.studentCount || 1) : baseVal;
+          return acc + totalVal;
+      }
+      return acc + paymentsSum;
+    }, 0);
+  }, [events, selectedYear, courseTypes, lectureModels]);
+
+  const progressJhonatta = goalJhonatta > 0 ? Math.min((totalAnnualPaidJhonatta / goalJhonatta) * 100, 100) : 0;
+  const progressDaniele = goalDaniele > 0 ? Math.min((totalAnnualPaidDaniele / goalDaniele) * 100, 100) : 0;
+
+  const handleSaveGoalJhonatta = () => {
+    const val = parseCurrency(tempGoalJhonatta);
     if (!isNaN(val) && val > 0) {
-      onUpdateGoal(val);
-      setIsEditingGoal(false);
+      if (onUpdateGoalJhonatta) onUpdateGoalJhonatta(val);
+      else if (onUpdateGoal) onUpdateGoal(val);
+      setIsEditingGoalJhonatta(false);
+    }
+  };
+
+  const handleSaveGoalDaniele = () => {
+    const val = parseCurrency(tempGoalDaniele);
+    if (!isNaN(val) && val > 0) {
+      if (onUpdateGoalDaniele) onUpdateGoalDaniele(val);
+      setIsEditingGoalDaniele(false);
     }
   };
 
@@ -282,31 +346,68 @@ export const FinancialScreen: React.FC<FinancialScreenProps> = ({ events, annual
           </div>
       </div>
 
-      <div className="relative w-full bg-gray-900 rounded-2xl p-5 shadow-lg text-white border border-gray-800">
-             <div className="flex justify-between items-center mb-4">
-                 <span className="text-gray-400 text-[10px] font-black uppercase tracking-[0.2em]">Faturamento Anual</span>
-                 <button onClick={() => { setTempGoal(formatCurrencyInput(annualGoal)); setIsEditingGoal(!isEditingGoal); }} className="p-1.5 bg-white/10 rounded-full transition-colors"><PencilIcon className="w-3 h-3 text-white" /></button>
-             </div>
-             {isEditingGoal ? (
-                <div className="flex gap-2 items-center mb-2">
-                    <span className="text-lg font-black">R$</span>
-                    <input ref={goalInputRef} type="text" inputMode="numeric" value={tempGoal} onChange={(e) => setTempGoal(formatCurrencyInput(e.target.value))} onBlur={handleSaveGoal} onKeyDown={(e) => e.key === 'Enter' && handleSaveGoal()} className="w-full bg-transparent border-b-2 border-white/30 text-2xl font-black text-white outline-none px-1" />
-                    <button onClick={handleSaveGoal} className="bg-white text-gray-900 px-3 py-1 rounded-lg text-xs font-black uppercase tracking-widest">OK</button>
-                </div>
-             ) : (
-                <div className="flex flex-col mb-3">
-                    <p className="text-3xl font-black text-white tracking-tighter">R$ {totalAnnualPaid.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-                    <p className="text-gray-400 text-[10px] font-bold uppercase tracking-widest mt-1">Meta: R$ {annualGoal.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-                </div>
-             )}
-             <div className="relative pt-1">
-                <div className="flex mb-2 items-center justify-between">
-                    <span className="text-[10px] font-black uppercase tracking-widest text-white">{progressPercentage.toFixed(1)}% atingido</span>
-                </div>
-                <div className="overflow-hidden h-2 mb-1 flex rounded-full bg-white/10">
-                    <div style={{ width: `${progressPercentage}%` }} className={`shadow-none flex flex-col text-center transition-all duration-1000 ${progressPercentage > 90 ? 'bg-red-500' : 'bg-primary'}`}></div>
-                </div>
-             </div>
+      <div className="space-y-4">
+        {/* Card 1: Jhonatta Guimarães */}
+        <div className="relative w-full bg-gray-900 rounded-2xl p-5 shadow-lg text-white border border-gray-800">
+               <div className="flex justify-between items-start mb-4">
+                   <div>
+                       <span className="text-gray-400 text-[10px] font-black uppercase tracking-[0.2em] block">Faturamento Anual</span>
+                       <span className="text-sky-400 text-xs font-bold block mt-0.5">(Jhonatta Guimarães)</span>
+                   </div>
+                   <button onClick={() => { setTempGoalJhonatta(formatCurrencyInput(goalJhonatta)); setIsEditingGoalJhonatta(!isEditingGoalJhonatta); }} className="p-1.5 bg-white/10 rounded-full transition-colors hover:bg-white/20" title="Editar Meta"><PencilIcon className="w-3 h-3 text-white" /></button>
+               </div>
+               {isEditingGoalJhonatta ? (
+                  <div className="flex gap-2 items-center mb-2">
+                      <span className="text-lg font-black">R$</span>
+                      <input ref={goalInputRefJhonatta} type="text" inputMode="numeric" value={tempGoalJhonatta} onChange={(e) => setTempGoalJhonatta(formatCurrencyInput(e.target.value))} onBlur={handleSaveGoalJhonatta} onKeyDown={(e) => e.key === 'Enter' && handleSaveGoalJhonatta()} className="w-full bg-transparent border-b-2 border-white/30 text-2xl font-black text-white outline-none px-1" />
+                      <button onClick={handleSaveGoalJhonatta} className="bg-white text-gray-900 px-3 py-1 rounded-lg text-xs font-black uppercase tracking-widest">OK</button>
+                  </div>
+               ) : (
+                  <div className="flex flex-col mb-3">
+                      <p className="text-3xl font-black text-white tracking-tighter">R$ {totalAnnualPaidJhonatta.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                      <p className="text-gray-400 text-[10px] font-bold uppercase tracking-widest mt-1">Meta: R$ {goalJhonatta.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                  </div>
+               )}
+               <div className="relative pt-1">
+                  <div className="flex mb-2 items-center justify-between">
+                      <span className="text-[10px] font-black uppercase tracking-widest text-white">{progressJhonatta.toFixed(1)}% atingido</span>
+                  </div>
+                  <div className="overflow-hidden h-2 mb-1 flex rounded-full bg-white/10">
+                      <div style={{ width: `${progressJhonatta}%` }} className={`shadow-none flex flex-col text-center transition-all duration-1000 ${progressJhonatta > 90 ? 'bg-red-500' : 'bg-sky-500'}`}></div>
+                  </div>
+               </div>
+        </div>
+
+        {/* Card 2: Daniele Dias */}
+        <div className="relative w-full bg-gray-900 rounded-2xl p-5 shadow-lg text-white border border-gray-800">
+               <div className="flex justify-between items-start mb-4">
+                   <div>
+                       <span className="text-gray-400 text-[10px] font-black uppercase tracking-[0.2em] block">Faturamento Anual</span>
+                       <span className="text-sky-400 text-xs font-bold block mt-0.5">(Daniele Dias)</span>
+                   </div>
+                   <button onClick={() => { setTempGoalDaniele(formatCurrencyInput(goalDaniele)); setIsEditingGoalDaniele(!isEditingGoalDaniele); }} className="p-1.5 bg-white/10 rounded-full transition-colors hover:bg-white/20" title="Editar Meta"><PencilIcon className="w-3 h-3 text-white" /></button>
+               </div>
+               {isEditingGoalDaniele ? (
+                  <div className="flex gap-2 items-center mb-2">
+                      <span className="text-lg font-black">R$</span>
+                      <input ref={goalInputRefDaniele} type="text" inputMode="numeric" value={tempGoalDaniele} onChange={(e) => setTempGoalDaniele(formatCurrencyInput(e.target.value))} onBlur={handleSaveGoalDaniele} onKeyDown={(e) => e.key === 'Enter' && handleSaveGoalDaniele()} className="w-full bg-transparent border-b-2 border-white/30 text-2xl font-black text-white outline-none px-1" />
+                      <button onClick={handleSaveGoalDaniele} className="bg-white text-gray-900 px-3 py-1 rounded-lg text-xs font-black uppercase tracking-widest">OK</button>
+                  </div>
+               ) : (
+                  <div className="flex flex-col mb-3">
+                      <p className="text-3xl font-black text-white tracking-tighter">R$ {totalAnnualPaidDaniele.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                      <p className="text-gray-400 text-[10px] font-bold uppercase tracking-widest mt-1">Meta: R$ {goalDaniele.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                  </div>
+               )}
+               <div className="relative pt-1">
+                  <div className="flex mb-2 items-center justify-between">
+                      <span className="text-[10px] font-black uppercase tracking-widest text-white">{progressDaniele.toFixed(1)}% atingido</span>
+                  </div>
+                  <div className="overflow-hidden h-2 mb-1 flex rounded-full bg-white/10">
+                      <div style={{ width: `${progressDaniele}%` }} className={`shadow-none flex flex-col text-center transition-all duration-1000 ${progressDaniele > 90 ? 'bg-red-500' : 'bg-sky-500'}`}></div>
+                  </div>
+               </div>
+        </div>
       </div>
     </div>
   );
