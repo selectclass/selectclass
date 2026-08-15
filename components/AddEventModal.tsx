@@ -307,7 +307,7 @@ const [zip, setZip] = useState('');
       paymentDueDate: isPalestraMode ? undefined : paymentDueDate,
       paymentDeadlineDays: isPalestraMode ? undefined : deadlineDays,
       paymentFrequency: paymentMethod === 'Facilitado' ? paymentFrequency : undefined,
-      installmentDates: paymentMethod === 'Facilitado' && paymentFrequency === 'monthly' ? installmentDates : undefined,
+      installmentDates: paymentMethod === 'Facilitado' && paymentFrequency === 'monthly' ? Object.fromEntries(Object.entries(installmentDates).filter(([_, v]) => v.trim() !== '')) : undefined,
       payments: finalPayments,
       materials: initialEvent ? initialEvent.materials : (courseTypes.find(c => c.name === course)?.defaultMaterials?.map(m => ({ id: Math.random().toString(), name: m.name, checked: false })) || []),
       createdAt: initialEvent?.createdAt || new Date(),
